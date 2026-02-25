@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>手部关键点热图</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 18px; background:#f7f8fb; color:#111 }
+    h1 { font-size:18px; margin:0 0 10px }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap }
+    label { font-size:13px }
+    #stage { position:relative; display:inline-block; border:1px solid #ddd; background:#000 }
+    canvas { display:block }
+    #overlayCanvas { position:absolute; left:0; top:0 }
+    .controls { margin:10px 0 18px }
+    button, input[type=file], select { padding:8px 10px; font-size:13px }
+    small { color:#555 }
+  </style>
+</head>
+<body>
+  <h1>手部关键点热图</h1>
+  <div class="controls">
+    <div class="row">
+      <label>选择图片（JPG/PNG）： <input id="imgFile" type="file" accept="image/*"></label>
+      <label>选择 Excel (.xlsx)： <input id="excelFile" type="file" accept=".xlsx,.xls"></label>
+      <button id="drawBtn">生成热图</button>
+      <button id="downloadBtn">下载热图PNG</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label>点大小： <input id="pointSize" type="number" value="8" min="1" style="width:70px"></label>
+      <label>热图平滑半径(px)： <input id="kernelRadius" type="number" value="20" min="1" style="width:80px"></label>
+      <label>热图透明度： <input id="alpha" type="number" step="0.1" min="0" max="1" value="0.5" style="width:70px"></label>
+    </div>
+    <div style="margin-top:8px"><small>说明：Excel 表格应包含列名，列名示例：<code>centroidX_i</code>, <code>centroidY_i</code>,<code>dotArea_i</code>, <code>dotEccentricities_i</code>（不区分大小写）。坐标以像素为单位，X 对应水平，Y 对应垂直。</small></div>
+  </div>
+
+  <div id="stage">
+    <canvas id="imgCanvas"></canvas>
+    <canvas id="overlayCanvas"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+  const imgInput = document.getElementById('imgFile');
+  const excelInput = document.getElementById('excelFile');
+  const drawBtn = document.getElementById('drawBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const imgCanvas = document.getElementById('imgCanvas');
+  const overlayCanvas = document.getElementById('overlayCanvas');
+  const pointSizeInput = document.getElementById('pointSize');
+  const kernelRadiusInput = document.getElementById('kernelRadius');
+  const alphaInput = document.getElementById('alpha');
+
+  let loadedImage = null;
+  let points = [];
+
+  imgInput.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      loadedImage = img;
+      setupCanvas(img.width, img.height);
+      drawImage();
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
+
+  excelInput.addEventListener('change', async (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    const data = await f.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(data), {type:'array'});
+    const firstSheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[firstSheetName];
+    const json = XLSX.utils.sheet_to_json(sheet, {raw:false, defval:null});
+
+    const idSet = new Set();
+    Object.keys(json[0]).forEach(key => {
+      const match = key.match(/^centroidX_(\d+)$/);
+      if (match) idSet.add(Number(match[1]));
+    });
+    const ids = Array.from(idSet).sort((a,b)=>a-b);
+    console.log('识别到的 ID:', ids);
+
+    points = []; // 每次读取清空
+    for (const row of json) {
+      const frameID = Number(row.frameID);
+      const time = Number(row.Time);
+      if (Number.isNaN(frameID) || Number.isNaN(time)) continue;
+
+      for (const id of ids) {
+        const x = Number(row[`centroidX_${id}`]);
+        const y = Number(row[`centroidY_${id}`]);
+        const area = Number(row[`dotArea_${id}`]);
+        const confidence = Number(row[`dotEccentricities_${id}`]);
+        if (Number.isNaN(x) || Number.isNaN(y)) continue;
+
+        points.push({
+          frameID, time, id, x, y,
+          v: 1,
+          area: Number.isNaN(area) ? 0 : area,
+          confidence: Number.isNaN(confidence) ? 0 : confidence
+        });
+      }
+    }
+
+    alert(
+      `已读取 Excel\n` +
+      `总点数: ${points.length}\n` +
+      `帧数: ${new Set(points.map(p => p.frameID)).size}\n` +
+      `ID 数: ${ids.length}`
+    );
+  });
+
+  function setupCanvas(w, h) {
+    imgCanvas.width = w; 
+    imgCanvas.height = h;
+    overlayCanvas.width = w; 
+    overlayCanvas.height = h;
+  }
+
+  function drawImage() {
+    if (!loadedImage) return;
+    const ctx = imgCanvas.getContext('2d');
+    ctx.clearRect(0,0,imgCanvas.width,imgCanvas.height);
+    ctx.drawImage(loadedImage, 0, 0, imgCanvas.width, imgCanvas.height);
+  }
+
+  function generateGaussianKernel(radius, sigma) {
+    const size = radius*2 + 1;
+    const kernel = new Float32Array(size*size);
+    const mean = radius;
+    let sum = 0;
+    for (let y=0; y<size; y++){
+      for (let x=0; x<size; x++){
+        const ex = Math.exp(-0.5 * ( (Math.pow((x-mean)/sigma,2) + Math.pow((y-mean)/sigma,2)) ));
+        kernel[y*size+x] = ex;
+        sum += ex;
+      }
+    }
+    for (let i=0;i<kernel.length;i++) kernel[i]/=sum;
+    return {kernel,size};
+  }
+
+  function convolveFloat32(src, w, h, kernel, ksize) {
+    const half = Math.floor(ksize/2);
+    const out = new Float32Array(w*h);
+    for (let y=0;y<h;y++){
+      for (let x=0;x<w;x++){
+        let val=0;
+        for (let ky=0; ky<ksize; ky++){
+          for (let kx=0; kx<ksize; kx++){
+            const ix=x+(kx-half);
+            const iy=y+(ky-half);
+            if(ix>=0 && ix<w && iy>=0 && iy<h) val += src[iy*w+ix]*kernel[ky*ksize+kx];
+          }
+        }
+        out[y*w+x] = val;
+      }
+    }
+    return out;
+  }
+
+  function plasmaColor(t){
+    t = Math.max(0,Math.min(1,t));
+    const r = Math.round(255*(1-Math.exp(-3*t)));
+    const g = Math.round(255*(Math.pow(t,0.5)*0.8));
+    const b = Math.round(255*(Math.exp(-4*t)+0.1));
+    return [r,g,b];
+  }
+
+  function jetColor(v){
+    const fourV = 4*v;
+    const r = Math.min(255,Math.max(0,Math.floor(255*Math.min(fourV-1.5,-fourV+4.5))));
+    const g = Math.min(255,Math.max(0,Math.floor(255*Math.min(fourV-0.5,-fourV+3.5))));
+    const b = Math.min(255,Math.max(0,Math.floor(255*Math.min(fourV+0.5,-fourV+2.5))));
+    return [r,g,b];
+  }
+
+  function drawHeatmap() {
+    if (!loadedImage) { alert('请先加载图片'); return; }
+    if (points.length === 0) { alert('请先加载 Excel 数据'); return; }
+
+    drawImage();
+    const w = imgCanvas.width, h = imgCanvas.height;
+    const ctx = overlayCanvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+
+    // 计算缩放比例
+    const scaleX = imgCanvas.width / loadedImage.width;
+    const scaleY = imgCanvas.height / loadedImage.height;
+
+    // 创建热图矩阵
+    const heat = new Float32Array(w * h);
+    let vmin = Infinity, vmax = -Infinity;
+
+    for (const p of points) {
+      const x = p.x * scaleX; // 缩放
+      const y = p.y * scaleY; // 缩放
+      const ix = Math.floor(x);
+      const iy = Math.floor(y);
+      const fx = x - ix;
+      const fy = y - iy;
+
+      if (ix >= 0 && ix < w - 1 && iy >= 0 && iy < h - 1) {
+        // 四邻域加权
+        heat[iy * w + ix] += p.v * (1 - fx) * (1 - fy);
+        heat[iy * w + (ix + 1)] += p.v * fx * (1 - fy);
+        heat[(iy + 1) * w + ix] += p.v * (1 - fx) * fy;
+        heat[(iy + 1) * w + (ix + 1)] += p.v * fx * fy;
+
+        // 更新 vmin/vmax
+        vmin = Math.min(vmin,
+          heat[iy * w + ix], heat[iy * w + (ix + 1)],
+          heat[(iy + 1) * w + ix], heat[(iy + 1) * w + (ix + 1)]
+        );
+        vmax = Math.max(vmax,
+          heat[iy * w + ix], heat[iy * w + (ix + 1)],
+          heat[(iy + 1) * w + ix], heat[(iy + 1) * w + (ix + 1)]
+        );
+      }
+    }
+
+    // Gaussian 卷积
+    const radius = parseInt(kernelRadiusInput.value) || 20;
+    const sigma = Math.max(1, radius / 3);
+    const { kernel, size } = generateGaussianKernel(radius, sigma);
+    const blurred = convolveFloat32(heat, w, h, kernel, size);
+
+    // normalize blurred to [0,1]
+    let minB = Infinity, maxB = -Infinity;
+    for (let i = 0; i < blurred.length; i++) {
+      minB = Math.min(minB, blurred[i]);
+      maxB = Math.max(maxB, blurred[i]);
+    }
+    const range = (maxB - minB) || 1;
+
+    // 创建 imageData
+    const id = ctx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x;
+        const norm = (blurred[i] - minB) / range;
+        if (norm <= 0) {
+          id.data[i * 4 + 3] = 0;
+        } else {
+          const [r, g, b] = plasmaColor(norm);
+          id.data[i * 4 + 0] = r;
+          id.data[i * 4 + 1] = g;
+          id.data[i * 4 + 2] = b;
+          id.data[i * 4 + 3] = Math.floor(255 * parseFloat(alphaInput.value));
+        }
+      }
+    }
+    ctx.putImageData(id, 0, 0);
+
+    // 绘制散点
+    const psize = parseInt(pointSizeInput.value) || 6;
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    for (const p of points) {
+      const x = p.x * scaleX; // 缩放
+      const y = p.y * scaleY; // 缩放
+      if (x >= 0 && x < w && y >= 0 && y < h) {
+        const valNorm = (p.v - vmin) / ((vmax - vmin) || 1);
+        const [r, g, b] = jetColor(valNorm);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.9)`;
+        ctx.beginPath();
+        ctx.arc(x, y, psize, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+
+
+
+  drawBtn.addEventListener('click', drawHeatmap);
+
+  downloadBtn.addEventListener('click',()=>{
+    if(!loadedImage) return alert('请先加载图片并生成热图');
+    const w=imgCanvas.width, h=imgCanvas.height;
+    const tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
+    const tctx=tmp.getContext('2d');
+    tctx.drawImage(imgCanvas,0,0);
+    tctx.drawImage(overlayCanvas,0,0);
+    const url=tmp.toDataURL('image/png');
+    const a=document.createElement('a'); a.href=url; a.download='heatmap.png'; a.click();
+  });
+
+  window.addEventListener('load',()=>{
+    const canvas=document.createElement('canvas'); 
+    canvas.width=640; canvas.height=360;
+    const c=canvas.getContext('2d');
+    c.fillStyle='#222'; 
+    c.fillRect(0,0,canvas.width,canvas.height); 
+    c.fillStyle='#999'; 
+    c.font='20px sans-serif'; 
+    c.fillText('请加载图片和 Excel 数据',20,30);
+    const place = new Image();
+    place.onload = () => { 
+      loadedImage = place; 
+      setupCanvas(place.width, place.height); 
+      drawImage(); 
+    };
+    place.src=canvas.toDataURL();
+  });
+  </script>
+</body>
+</html>

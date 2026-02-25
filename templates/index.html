@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>实验室</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='CSS/001.css') }}">
+</head>
+
+<body>
+  <!-- ================= Header ================= -->
+  <header class="main-header">
+    <div class="header-container">
+
+      <!-- 导航 -->
+      <nav class="main-navigation">
+        <ul class="nav-menu">
+          <li class="nav-item" id="data-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">📈</span>
+              <span class="text" data-i18n="nav_analysis"></span>
+            </a>
+          </li>
+
+          <li class="nav-item" id="deep-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">🔍</span>
+              <span class="text" data-i18n="nav_deep"></span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- 语言切换 -->
+      <button id="langSwitch" style="margin-left:20px;">EN</button>
+    </div>
+  </header>
+
+  <!-- ================= Dropdown ================= -->
+  <div class="dropdown-container">
+
+    <!-- 数据分析 -->
+    <div class="dropdown-menu" id="analysis-dropdown">
+      <div class="dropdown-item" data-action="videoRecognition" data-i18n="video_recognition"></div>
+      <div class="dropdown-item" data-action="idSingle" data-i18n="id_single"></div>
+      <div class="dropdown-item" data-action="idAll" data-i18n="id_all"></div>
+    </div>
+
+    <!-- 深度分析 -->
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="rqa"></div>
+    </div>
+  </div>
+
+  <div id="handMotionAnalysisBox" style="display:none;">
+    <h2 style="margin-top:120px;" id="handMotionAnalysisTitle">Hand Motion Analysis</h2>
+      <form id="form" >
+        <button type="button" id="uploadBtn" data-i18n="upload_Excel"></button>
+        <input type="file" id="fileInput" name="file" accept=".xlsx" required style="display:none;">
+        <div id="fileName" style="margin-top:10px; font-size:14px;"></div>
+        <br><br>
+
+        Lag:
+        <input type="number" name="lag" value="2"><br><br>
+
+        Number of joints:
+        <input type="number" name="n_joints" value="8"><br><br>
+
+        <button type="submit" data-i18n="start_analysis"></button>
+      </form>
+
+      <div id="status"></div>
+
+      <div id="progressBox" style="display:none; margin-top:15px;">
+        <progress id="progressBar" value="0" max="100" style="width:300px;"></progress>
+        <span id="progressText">0%</span>
+      </div>
+
+      <div id="downloadBox" style="display:none; margin-top:15px;">
+        <a id="excelLink">📄 Download Excel</a><br>
+        <!-- <a id="zipLink" href="${data.zip_url}" target="_blank">📦 Download ZIP</a> -->
+        <a id="zipLink" target="_blank">📦 Download ZIP</a>
+      </div>
+  </div>
+  <!-- ================= Script ================= -->
+  <script>
+    /* ========= 语言包 ========= */
+    const i18n = {
+      zh: {
+        nav_analysis: "数据分析",
+        nav_deep: "深度分析",
+
+        video_recognition: "视频识别",
+        id_single: "每个ID点的X和Y分析结果",
+        id_all: "所有ID点的X和Y分析结果(总图)",
+        heatmap: "热力图",
+
+        sampen: "样本熵",
+        Image_analysis: "图像分析",
+        rqa: "RQA",
+
+        upload_Excel: "上传 Excel 文件",
+        start_analysis: "开始分析"
+      },
+      en: {
+        nav_analysis: "Data Analysis",
+        nav_deep: "In-depth Analysis",
+
+        video_recognition: "Video Recognition",
+        id_single: "Single ID X and Y Analysis",
+        id_all: "All ID X and Y Analysis",
+        heatmap: "Heat Map",
+
+        sampen: "Sample Entropy",
+        Image_analysis: "Image Analysis",
+        rqa: "RQA",
+
+        upload_Excel: "Upload Excel File",
+        start_analysis: "Start Analysis"
+      }
+    };
+
+    let currentLang = localStorage.getItem("lang") || "en";
+
+    function renderLang(lang) {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.innerText = i18n[lang][el.dataset.i18n];
+      });
+      document.getElementById("langSwitch").innerText = lang === "zh" ? "EN" : "中";
+    }
+
+    renderLang(currentLang);
+
+    /* ========= 下拉控制 ========= */
+    const analysis = document.getElementById("data-analysis");
+    const deep = document.getElementById("deep-analysis");
+
+    const ad = document.getElementById("analysis-dropdown");
+    const dd = document.getElementById("deep-dropdown");
+
+    function hideAll() {
+      ad.style.display = dd.style.display = "none";
+    }
+
+    analysis.onclick = e => { 
+      hideAll(); 
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      ad.style.display = "block"; 
+    };
+    deep.onclick = e => { 
+      hideAll();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      dd.style.display = "block"; 
+    };
+
+    document.addEventListener("click", e => {
+      if (![analysis, deep, ad, dd].some(el => el.contains(e.target))) {
+        hideAll();
+      }
+    });
+    window.addEventListener("scroll", () => {
+      hideAll();
+    });
+
+    /* ========= 路由映射 ========= */
+    const routes = {
+      videoRecognition: "{{ url_for('static', filename='index/VideoRecognition.html') }}",
+      idSingle: "{{ url_for('static', filename='index/IDPointAnalysis.html') }}",
+      idAll: "{{ url_for('static', filename='index/AllIDPointAnalysis.html') }}",
+      heatmap: "{{ url_for('static', filename='index/HeatMap.html') }}",
+      sampen: "{{ url_for('static', filename='DeepAnalysis/SampleEntropy.html') }}",
+      Image_analysis: "{{ url_for('index') }}",
+      rqa: "{{ url_for('static', filename='DeepAnalysis/RQA.html') }}",
+    };
+
+    document.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = () => {
+        const action = item.dataset.action;
+
+        if (action === "Image_analysis") {
+          location.href = "/index?open=Image_analysis";
+        } else if (routes[action]) {
+          location.href = routes[action];
+        }
+      };
+    });
+
+
+    /* ========= 语言切换 ========= */
+    document.getElementById("langSwitch").onclick = () => {
+      currentLang = currentLang === "zh" ? "en" : "zh";
+      localStorage.setItem("lang", currentLang);
+      console.log(currentLang);
+      renderLang(currentLang);
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const params = new URLSearchParams(window.location.search);
+      const open = params.get("open");
+
+      if (open === "Image_analysis") {
+        const box = document.getElementById("handMotionAnalysisBox");
+        if (box) {
+          box.style.display = "block";
+        }
+      }
+    });
+
+    /* ========= 上传文件 ========= */
+
+
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDiv = document.getElementById('fileName');
+
+    const form = document.getElementById("form");
+    const statusDiv = document.getElementById("status");
+    const progressBox = document.getElementById("progressBox");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
+    const downloadBox = document.getElementById("downloadBox");
+    const excelLink = document.getElementById("excelLink");
+    const zipLink = document.getElementById("zipLink");
+
+
+     // 点击按钮时触发文件选择框
+    uploadBtn.addEventListener('click', function() {
+      fileInput.click();
+    });
+
+    // 当用户选择文件时，显示文件名
+    fileInput.addEventListener('change', function() {
+      const fileName = fileInput.files[0] ? fileInput.files[0].name : '未选择文件';
+      fileNameDiv.textContent = `已选择文件: ${fileName}`;
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const formData = new FormData(form);
+
+      // 初始化 UI
+      statusDiv.innerHTML = "📤 正在上传文件…";
+      progressBox.style.display = "block";
+      downloadBox.style.display = "none";
+      progressBar.value = 10;
+      progressText.innerText = "10%";
+
+      try {
+        const resp = await fetch("/run", {
+          method: "POST",
+          body: formData
+        });
+
+        progressBar.value = 60;
+        progressText.innerText = "60%（分析中）";
+
+        const data = await resp.json();
+
+        if (data.error) {
+          statusDiv.innerHTML = "❌ 错误：" + data.error;
+          return;
+        }
+
+        // 完成
+        progressBar.value = 100;
+        progressText.innerText = "100%";
+        statusDiv.innerHTML = "✅ 分析完成";
+
+        // 设置下载链接
+        excelLink.href = data.excel_url;
+        excelLink.setAttribute("download", "");
+        zipLink.href = data.zip_url;
+        zipLink.setAttribute("download", "results.zip");
+
+        downloadBox.style.display = "block";
+
+      } catch (err) {
+        statusDiv.innerHTML = "❌ 服务器错误";
+        progressBox.style.display = "none";
+      }
+    });
+
+  </script>
+</body>
+</html>

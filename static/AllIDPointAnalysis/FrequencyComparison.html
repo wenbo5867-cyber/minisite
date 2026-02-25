@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frequency Comparison - Laboratory</title>
+  <link rel="stylesheet" href="../CSS/001.css">
+  <link rel="stylesheet" href="../CSS/IDPointAnalysis/ChartPage.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .id-row { margin-top: 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    #idSelect { padding:6px 8px; border-radius:6px; border:1px solid #e6e9ef; min-width:160px; }
+    #generateBtn { padding:8px 12px; border-radius:8px; border:0; background:#1f6feb; color:#fff; cursor:pointer; }
+    .chart-area { margin-top: 1.5rem; text-align:center; }
+    canvas#frequencyChart { max-width:720px; width:100%; height:320px; display:block; margin:0 auto; background:#fff; border-radius:8px; padding:12px; box-shadow:0 6px 18px rgba(20,20,40,0.05); }
+  </style>
+</head>
+<body>
+  <header class="main-header">
+    <div class="header-container">
+      <!-- 导航 -->
+      <nav class="main-navigation">
+        <ul class="nav-menu">
+          <li class="nav-item" id="data-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">📈</span>
+              <span class="text" data-i18n="nav_analysis"></span>
+            </a>
+          </li>
+          <li class="nav-item" id="deep-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">🔍</span>
+              <span class="text" data-i18n="nav_deep"></span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+      <!-- 语言切换 -->
+      <button id="langSwitch" style="margin-left:20px;">EN</button>
+    </div>
+  </header>
+  
+  <!-- 下拉选项框 -->
+  <div class="dropdown-container">
+    <!-- 数据分析 -->
+    <div class="dropdown-menu" id="analysis-dropdown">
+      <div class="dropdown-item" data-action="videoRecognition" data-i18n="video_recognition"></div>
+      <div class="dropdown-item" data-action="idSingle" data-i18n="id_single"></div>
+      <div class="dropdown-item" data-action="idAll" data-i18n="id_all"></div>
+    </div>
+    <!-- 深度分析 -->
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="rqa"></div>
+    </div>
+  </div>
+  
+  <main class="main-content">
+    <section class="content-left">
+
+        <div class="item-card" data-page="trajectory-comparison" data-action="trajectoryComparison">
+          <h3 data-i18n="trajectory"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-comparison" data-action="frequencyComparison">
+          <h3 data-i18n="frequency"   style="color: #1f6feb;"></h3>
+        </div>
+
+        <div class="item-card" data-page="amplitude-comparison" data-action="amplitudeComparison">
+          <h3 data-i18n="amplitude"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-amplitude" data-action="frequencyAmplitude">
+          <h3 data-i18n="frequencyAmplitude"></h3>
+        </div>
+
+        <div class="item-card" data-page="amplitude-xy" data-action="amplitudeXY">
+          <h3 data-i18n="amplitudeXY"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-xy" data-action="frequencyXY">
+          <h3 data-i18n="frequencyXY"></h3>
+        </div>
+    </section>
+
+    <section class="content-section">
+      <h2>Frequency Comparison</h2>
+      
+      <!-- 上传Excel区域 -->
+      <div class="upload-section">
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📊</div>
+          <p data-i18n="qqq"></p>
+          <p class="file-info" data-i18n="upload_file_info"></p>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+        </div>
+        
+        <button class="upload-btn" id="selectFileBtn" data-i18n="select_file"></button>
+      </div>
+      
+      <!-- 状态显示区域 -->
+      <div class="status-section">
+        <div class="upload-status" id="uploadStatus">
+          <p data-i18n="wait_upload"></p>
+        </div>
+      </div>
+
+      <!-- ID 选择区 -->
+      <div class="id-row">
+        <label for="idSelect" data-i18n="select_id"></label>
+        <select id="idSelect"><option value="">（Please upload Excel first）</option></select>
+        <button id="generateBtn" disabled data-i18n="generate_chart"></button>
+      </div>
+      
+      <!-- 操作按钮区域 -->
+      <div class="action-section">
+        <button class="download-btn" id="downloadBtn" disabled data-i18n="download_svg"></button>
+      </div>
+
+      <!-- 图表区域（只显示 X 与 Y 平均频率） -->
+      <div class="chart-area">
+        <div class="chart-placeholder">
+          <canvas id="frequencyChart"></canvas>
+          <p class="small" id="chartNote" data-i18n="no_chart"></p>
+        </div>
+      </div>
+      
+    </section>
+  </main>
+  
+  <script>
+  const i18n = {
+      zh: {
+        nav_analysis: "数据分析",
+        nav_deep: "深度分析",
+        video_recognition: "视频识别",
+        id_single: "每个ID点的X和Y分析结果",
+        id_all: "所有ID点的X和Y分析结果(总图)",
+        heatmap: "热力图",
+        sampen: "样本熵",
+        Image_analysis: "图像分析",
+        rqa: "RQA",
+        qqq: "请选择Excel文件或拖拽至此处",
+        supported_formats: "支持的格式：Excel, CSV, 等",
+        select_file: "选择文件",
+        waiting_upload: "等待上传...",
+        select_id: "Select ID:",
+        points_per_graph: "每个图的点数",
+        run_analysis: "Run Analysis",
+        wait_upload: "请先上传文件",
+        waiting_analysis: "请等待分析完成...",
+        analysis_complete: "分析完成",
+        analysis_error: "分析错误",
+        analysis_success: "分析成功",
+        analysis_error_detail: "分析错误详情：",
+        analysis_success_detail: "分析成功详情：",
+        generate_chart: "生成图表",
+        download_svg: "下载 SVG",
+
+        trajectory: "轨迹",
+        frequency: "频率",
+        amplitude: "振幅",
+        frequencyAmplitude: "频率振幅",
+        amplitudeXY: "振幅XY",
+        frequencyXY: "频率XY",
+      },
+      en: {
+        nav_analysis: "Data Analysis",
+        nav_deep: "In-depth Analysis",
+        video_recognition: "Video Recognition",
+        id_single: "Single ID Point X and Y Analysis",
+        id_all: "All ID Point X and Y Analysis(Overall)",
+        heatmap: "Heat Map",
+        sampen: "Sample Entropy",
+        Image_analysis: "Image Analysis",
+        rqa: "RQA",
+        qqq: "Click to select an Excel file or drag it here",
+        supported_formats: "Supported Formats: Excel, CSV, etc.",
+        select_file: "Select File",
+        waiting_upload: "Waiting for upload...",
+        select_id: "Select ID:",
+        points_per_graph: "Points per graph",
+        run_analysis: "Run Analysis",
+        wait_upload: "Please upload a file first",
+        waiting_analysis: "Please wait for analysis to complete...",
+        analysis_complete: "Analysis Complete",
+        analysis_error: "Analysis Error",
+        analysis_success: "Analysis Success",
+        analysis_error_detail: "Analysis error details:",
+        analysis_success_detail: "Analysis success details:",
+        generate_chart: "Generate Chart",
+        download_svg: "Download SVG",
+
+        trajectory: "Trajectory",
+        frequency: "Frequency",
+        amplitude: "Amplitude",
+        frequencyAmplitude: "Frequency Amplitude",
+        amplitudeXY: "Amplitude XY",
+        frequencyXY: "Frequency XY",
+      },
+    };
+
+    let currentLang = localStorage.getItem("lang") || "en";
+
+    function renderLang(lang) {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.innerText = i18n[lang][el.dataset.i18n];
+      });
+      document.getElementById("langSwitch").innerText = lang === "zh" ? "EN" : "中";
+    }
+
+    renderLang(currentLang);
+
+    /* ========= 下拉控制 ========= */
+    const analysis = document.getElementById("data-analysis");
+    const deep = document.getElementById("deep-analysis");
+
+    const ad = document.getElementById("analysis-dropdown");
+    const dd = document.getElementById("deep-dropdown");
+
+    function hideAll() {
+      ad.style.display = dd.style.display = "none";
+    }
+
+    analysis.onclick = e => { 
+      hideAll(); 
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      ad.style.display = "block"; 
+    };
+    deep.onclick = e => { 
+      hideAll();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      dd.style.display = "block"; 
+    };
+
+    document.addEventListener("click", e => {
+      if (![analysis, deep, ad, dd].some(el => el.contains(e.target))) {
+        hideAll();
+      }
+    });
+    window.addEventListener("scroll", () => {
+      hideAll();
+    });
+
+    /* ========= 路由映射 ========= */
+    const routes = {
+      videoRecognition: "../index/VideoRecognition.html",
+      idSingle: "../index/IDPointAnalysis.html",
+      idAll: "../index/AllIDPointAnalysis.html",
+      heatmap: "../index/HeatMap.html",
+      sampen: "../DeepAnalysis/SampleEntropy.html",
+      Image_analysis: "{{ url_for('index') }}",
+      rqa: "../DeepAnalysis/RQA.html"
+    };
+
+    document.querySelectorAll(".option-card[data-action]").forEach(card => {
+      card.addEventListener("click", () => {
+        const action = card.dataset.action;
+        if (routes[action]) {
+          location.href = routes[action];
+        }
+      });
+    });
+    document.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = () => {
+        const action = item.dataset.action;
+
+        if (action === "Image_analysis") {
+          location.href = "/index?open=Image_analysis";
+        } else if (routes[action]) {
+          location.href = routes[action];
+        }
+        };
+    });
+
+    /* ========= 语言切换 ========= */
+    document.getElementById("langSwitch").onclick = () => {
+      currentLang = currentLang === "zh" ? "en" : "zh";
+      localStorage.setItem("lang", currentLang);
+      renderLang(currentLang);
+    };
+
+    const pages = {
+      trajectoryComparison:"../AllIDPointAnalysis/TrajectoryComparison.html",
+      amplitudeComparison:"../AllIDPointAnalysis/AmplitudeComparison.html",
+      frequencyAmplitude:"../AllIDPointAnalysis/FrequencyAmplitude.html",
+      amplitudeXY:"../AllIDPointAnalysis/AmplitudeXY.html",
+      frequencyXY:"../AllIDPointAnalysis/FrequencyXY.html",
+    };
+
+    document.querySelector(".content-left").addEventListener("click", function (e) {
+
+      const card = e.target.closest(".item-card");
+      
+      if (!card) return;
+
+      const action = card.dataset.action;
+
+      if (pages[action]) {
+        window.location.href = pages[action];
+      }
+    });
+
+    // UI 元素
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const selectFileBtn = document.getElementById('selectFileBtn');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const idSelect = document.getElementById('idSelect');
+    const generateBtn = document.getElementById('generateBtn');
+    const chartNote = document.getElementById('chartNote');
+
+    // globals
+    let excelData = null;
+    let chartInstance = null;
+    let processedResult = null; // {id, meanFx, meanFy}
+
+    // 点击选择文件
+    selectFileBtn.addEventListener('click', ()=> fileInput.click());
+    uploadArea.addEventListener('click', ()=> fileInput.click());
+
+    // 拖拽
+    uploadArea.addEventListener('dragover', e=>{ e.preventDefault(); uploadArea.classList.add('drag-over'); });
+    uploadArea.addEventListener('dragleave', ()=> uploadArea.classList.remove('drag-over'));
+    uploadArea.addEventListener('drop', function(e){
+      e.preventDefault(); uploadArea.classList.remove('drag-over');
+      if (e.dataTransfer.files.length>0) {
+        const file = e.dataTransfer.files[0];
+        if (/\.(xlsx|xls|csv)$/i.test(file.name)) handleFileUpload(file);
+        else showStatus('Please select an Excel file!','error');
+      }
+    });
+
+    // 选择文件后处理
+    fileInput.addEventListener('change', function(e){
+      if (e.target.files.length>0) handleFileUpload(e.target.files[0]);
+    });
+
+    function showStatus(message, status){
+      uploadStatus.innerHTML = `<p class="${status}">${message}</p>`;
+      uploadStatus.className = 'upload-status ' + (status||'');
+    }
+
+    function handleFileUpload(file){
+      if (!/\.(xlsx|xls|csv)$/i.test(file.name)) { 
+        showStatus('Please select an Excel file!','error'); 
+        return; 
+      }
+      showStatus(
+        `File name: ${file.name}<br>File size: ${(file.size/1024/1024).toFixed(2)} MB`,
+        'info'
+      );
+      // 解析文件（支持 csv/xlsx）
+      const reader = new FileReader();
+      
+      reader.onload = function (ev) {
+        let workbook;
+        try {
+          const data = new Uint8Array(ev.target.result);
+          workbook = XLSX.read(data, { type: 'array' });
+        } catch (e) {
+          showStatus('Failed to read file: ' + e.message, 'error');
+          return;
+        }
+
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, { raw: true });
+
+        if (!json || json.length === 0) {
+          showStatus('The table is empty or failed to parse.', 'error');
+          return;
+        }
+
+        excelData = transformWideToLong(json);
+        populateIDSelect();
+
+        showStatus(`Successfully read ${json.length} rows of data. ID list generated.`, 'success');
+        downloadBtn.disabled = false;
+        generateBtn.disabled = false;
+        chartNote.textContent = 'Please select an ID from the list above and click \'Generate Chart\'.';
+      };
+
+      // read depending on type
+      if (file.name.toLowerCase().endsWith('.csv')) reader.readAsBinaryString(file);
+      else reader.readAsArrayBuffer(file);
+    }
+    function transformWideToLong(rows) {
+      const out = [];
+
+      rows.forEach(r => {
+        const time = Number(r['Time']);
+        const frameID = Number(r['frameID']);
+
+        for (let i = 1; i <= 8; i++) {
+          const x = Number(r[`centroidX_${i}`]);
+          const y = Number(r[`centroidY_${i}`]);
+          const area = Number(r[`dotArea_${i}`]);
+          const ecc = Number(r[`dotEccentricities_${i}`]);
+
+          // 跳过无效点
+          if ([x, y].some(v => Number.isNaN(v))) continue;
+
+          out.push({
+            id: i,
+            frameID: frameID,
+            time: time,
+            x: x,
+            y: y,
+            area: area,
+            ecc: ecc
+          });
+        }
+      });
+
+      return out;
+    }
+
+
+    function populateIDSelect(){
+      idSelect.innerHTML = '';
+      // normalize key names (支持大小写)
+      const keys = Object.keys(excelData[0]).map(k=>k.toLowerCase());
+      // ensure presence of id,x,y,time
+      const norm = {};
+      Object.keys(excelData[0]).forEach(k=> norm[k.toLowerCase()] = k);
+      if (!norm['id'] || !norm['x'] || !norm['y'] || !norm['time']) {
+        showStatus('The table is missing required columns: ID / X / Y / Time (column names are case sensitive, please check)','error');
+        generateBtn.disabled = true; downloadBtn.disabled = true; nextBtn.disabled = true;
+        return;
+      }
+      // collect ids
+      const idKey = norm['id'];
+      const ids = Array.from(new Set(excelData.map(r=>Number(r[idKey])))).filter(v=>!Number.isNaN(v)).sort((a,b)=>a-b);
+      if (ids.length===0) {
+        showStatus('No valid ID column data found.','error'); return;
+      }
+      // add placeholder
+      const ph = document.createElement('option'); ph.value=''; ph.textContent='— ID —'; idSelect.appendChild(ph);
+      ids.forEach(id=>{
+        const opt = document.createElement('option'); opt.value = id; opt.textContent = id; idSelect.appendChild(opt);
+      });
+    }
+
+    // ---------- 下面是信号处理函数（来自你原始页面，保留逻辑） ----------
+    function interp1_linear(xIn, yIn, xOut){
+      const yOut = new Float64Array(xOut.length);
+      for(let i=0;i<xOut.length;i++){
+        const x = xOut[i];
+        if(x <= xIn[0]){ yOut[i] = yIn[0]; continue }
+        if(x >= xIn[xIn.length-1]){ yOut[i] = yIn[yIn.length-1]; continue }
+        let j = 0;
+        while(!(xIn[j] <= x && x <= xIn[j+1])) j++;
+        const t = (x - xIn[j]) / (xIn[j+1] - xIn[j]);
+        yOut[i] = yIn[j] + t*(yIn[j+1] - yIn[j]);
+      }
+      return Array.from(yOut);
+    }
+    function movingAvg(data, windowSize){
+      const N = data.length;
+      const out = new Array(N).fill(0);
+      for(let i=0;i<N;i++){
+        let sum=0; let count=0;
+        for(let k=0;k<windowSize;k++){
+          const idx = i-k; if(idx<0) break; sum += data[idx]; count++;
+        }
+        out[i] = sum/count;
+      }
+      const out2 = new Array(N).fill(0);
+      for(let i=N-1;i>=0;i--){
+        let sum=0; let count=0;
+        for(let k=0;k<windowSize;k++){
+          const idx = i+k; if(idx>=N) break; sum += out[idx]; count++;
+        }
+        out2[i] = sum/count;
+      }
+      return out2;
+    }
+    function findPeaks(vec, minProminence=0){
+      const N = vec.length; const peaks=[]; const locs=[];
+      for(let i=1;i<N-1;i++){
+        if(vec[i] > vec[i-1] && vec[i] > vec[i+1]){
+          let leftMin = vec[i];
+          for(let L=i;L>=0;L--){ if(vec[L] > vec[i]) break; leftMin = Math.min(leftMin, vec[L]); }
+          let rightMin = vec[i];
+          for(let R=i;R<N;R++){ if(vec[R] > vec[i]) break; rightMin = Math.min(rightMin, vec[R]); }
+          const prom = vec[i] - Math.max(leftMin, rightMin);
+          if(prom >= minProminence){ peaks.push(vec[i]); locs.push(i); }
+        }
+      }
+      return {peaks, locs};
+    }
+    function calcInstantFreq(locsPeaks, locsTroughs, Fs, timeArr){
+      const freq = []; const timePts = [];
+      for(let i=0;i<locsPeaks.length;i++){
+        const peakIdx = locsPeaks[i];
+        const validT = locsTroughs.filter(t=>t>peakIdx);
+        if(validT.length>0){
+          const td = (validT[0] - peakIdx)/Fs;
+          if(td>0){ freq.push(1/(2*td)); timePts.push(timeArr[peakIdx]); }
+        }
+      }
+      return {freq, timePts};
+    }
+    // ---------- end signal functions ----------
+
+    // 生成图表
+    generateBtn.addEventListener('click', function(){
+      if (!excelData) { alert('Please upload Excel first.'); return; }
+      const selectedID = Number(idSelect.value);
+      if (!selectedID) { alert('Please select an ID.'); return; }
+
+      // 取 1 ~ selectedID 的所有 ID
+      const validIDs = Array.from(
+        new Set(excelData.map(r => r.id))
+      ).filter(id => id <= selectedID).sort((a,b)=>a-b);
+
+      if (validIDs.length === 0) {
+        showStatus('No valid ID data found.','error');
+        return;
+      }
+
+      const meanFxList = [];
+      const meanFyList = [];
+
+      validIDs.forEach(curID => {
+
+        // 当前 ID 的数据
+        let rows = excelData.filter(r => r.id === curID);
+        if (rows.length < 5) return; // 点太少，跳过
+
+        // 提取并按时间排序
+        let timeArr = rows.map(r=>r.time);
+        let xArr = rows.map(r=>r.x);
+        let yArr = rows.map(r=>r.y);
+
+        const idx = timeArr
+          .map((v,i)=>[v,i])
+          .sort((a,b)=>a[0]-b[0])
+          .map(p=>p[1]);
+
+        timeArr = idx.map(i=>timeArr[i]);
+        xArr = idx.map(i=>xArr[i]);
+        yArr = idx.map(i=>yArr[i]);
+
+        // 采样频率
+        const Fs = 1 / ((timeArr[1]-timeArr[0]) || 1);
+
+        // 平滑
+        const xFilt = movingAvg(xArr, 5);
+        const yFilt = movingAvg(yArr, 5);
+
+        // 峰谷检测
+        const std = a => {
+          const m = a.reduce((s,v)=>s+v,0)/a.length;
+          return Math.sqrt(a.map(v=>(v-m)**2).reduce((s,v)=>s+v,0)/a.length);
+        };
+
+        const peaksX = findPeaks(xFilt, 0.5*std(xFilt));
+        const troughsX = findPeaks(xFilt.map(v=>-v), 0.5*std(xFilt));
+        const peaksY = findPeaks(yFilt, 0.5*std(yFilt));
+        const troughsY = findPeaks(yFilt.map(v=>-v), 0.5*std(yFilt));
+
+        const fx = calcInstantFreq(peaksX.locs, troughsX.locs, Fs, timeArr);
+        const fy = calcInstantFreq(peaksY.locs, troughsY.locs, Fs, timeArr);
+
+        if (fx.freq.length > 0)
+          meanFxList.push(fx.freq.reduce((a,b)=>a+b,0)/fx.freq.length);
+
+        if (fy.freq.length > 0)
+          meanFyList.push(fy.freq.reduce((a,b)=>a+b,0)/fy.freq.length);
+      });
+
+      if (meanFxList.length === 0 || meanFyList.length === 0) {
+        showStatus('Valid ID data is insufficient to calculate average frequency.','error');
+        return;
+      }
+
+      const meanFx = meanFxList.reduce((a,b)=>a+b,0)/meanFxList.length;
+      const meanFy = meanFyList.reduce((a,b)=>a+b,0)/meanFyList.length;
+
+      processedResult = {
+        id: `1-${selectedID}`,
+        meanFx,
+        meanFy
+      };
+
+      // 画图
+      const ctx = document.getElementById('frequencyChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['X Average Frequency', 'Y Average Frequency'],
+          datasets: [{
+            label: 'Average Frequency (Hz)',
+            data: [meanFx, meanFy]
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display:false } },
+          scales: { y: { beginAtZero:true } }
+        }
+      });
+
+      chartNote.textContent =
+        `ID 1–${selectedID}: X average = ${meanFx.toFixed(4)} Hz, Y average = ${meanFy.toFixed(4)} Hz`;
+
+      showStatus(`Successfully generated average frequency comparison chart for ID 1–${selectedID}.`, 'success');
+      downloadBtn.disabled = false;
+    });
+
+
+    // 下载 SVG（由 Canvas 包装成 SVG）
+    downloadBtn.addEventListener('click', function () {
+      if (!chartInstance) {
+        alert('Please generate a chart first!');
+        return;
+      }
+
+      const canvas = document.getElementById('frequencyChart');
+      const imgData = canvas.toDataURL('image/png');
+
+      // SVG 容器
+      const svgContent = `
+    <svg xmlns="http://www.w3.org/2000/svg"
+        width="${canvas.width}"
+        height="${canvas.height}">
+      <image href="${imgData}"
+            width="${canvas.width}"
+            height="${canvas.height}" />
+    </svg>`;
+
+      const blob = new Blob([svgContent], {
+        type: 'image/svg+xml;charset=utf-8;'
+      });
+
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `freq_ID_${processedResult.id}.svg`;
+      a.click();
+
+      showStatus('已下载 SVG 文件。', 'success');
+    });
+
+  </script>
+</body>
+</html>

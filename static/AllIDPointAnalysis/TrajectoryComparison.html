@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X-Y Trajectory Comparison - Laboratory</title>
+  <link rel="stylesheet" href="../CSS/001.css">
+  <link rel="stylesheet" href="../CSS/IDPointAnalysis/ChartPage.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.1.1/plotly.min.js"></script>
+</head>
+<body>
+  <header class="main-header">
+    <div class="header-container">
+      <!-- 导航 -->
+      <nav class="main-navigation">
+        <ul class="nav-menu">
+          <li class="nav-item" id="data-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">📈</span>
+              <span class="text" data-i18n="nav_analysis"></span>
+            </a>
+          </li>
+          <li class="nav-item" id="deep-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">🔍</span>
+              <span class="text" data-i18n="nav_deep"></span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+      <!-- 语言切换 -->
+      <button id="langSwitch" style="margin-left:20px;">EN</button>
+    </div>
+  </header>
+  
+  <!-- 下拉选项框 -->
+  <div class="dropdown-container">
+
+    <!-- 数据分析 -->
+    <div class="dropdown-menu" id="analysis-dropdown">
+      <div class="dropdown-item" data-action="videoRecognition" data-i18n="video_recognition"></div>
+      <div class="dropdown-item" data-action="idSingle" data-i18n="id_single"></div>
+      <div class="dropdown-item" data-action="idAll" data-i18n="id_all"></div>
+    </div>
+
+    <!-- 深度分析 -->
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="rqa"></div>
+    </div>
+  </div>
+  
+  <main class="main-content">
+    <section class="content-left">
+
+        <div class="item-card" data-page="trajectory-comparison" data-action="trajectoryComparison">
+          <h3 data-i18n="trajectory" style="color: #1f6feb;"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-comparison" data-action="frequencyComparison">
+          <h3 data-i18n="frequency"></h3>
+        </div>
+
+        <div class="item-card" data-page="amplitude-comparison" data-action="amplitudeComparison">
+          <h3 data-i18n="amplitude"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-amplitude" data-action="frequencyAmplitude">
+          <h3 data-i18n="frequencyAmplitude"></h3>
+        </div>
+
+        <div class="item-card" data-page="amplitude-xy" data-action="amplitudeXY">
+          <h3 data-i18n="amplitudeXY"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-xy" data-action="frequencyXY">
+          <h3 data-i18n="frequencyXY"></h3>
+        </div>
+    </section>
+
+    <section class="content-section">
+      <h2>X-Y Trajectory Comparison</h2>
+      
+      <!-- 上传Excel区域 -->
+      <div class="upload-section">
+        <div class="upload-area" id="uploadArea">
+         <div class="upload-icon">📊</div>
+          <p data-i18n="qqq"></p>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+        </div>
+        <button class="upload-btn" id="selectFileBtn" data-i18n="select_file"></button>
+      </div>
+      
+      <!-- 输入 ID -->
+      <div class="action-section">
+        <label for="inputID" data-i18n="select_id"></label>
+        <input type="number" id="inputID" />
+        <button id="analyzeBtn" data-i18n="analyze"></button>
+      </div>
+      
+      <!-- 状态显示区域 -->
+      <div class="status-section">
+        <div class="upload-status" id="uploadStatus">
+          <p data-i18n="waiting_upload"></p>
+        </div>
+      </div>
+      
+      <!-- 操作按钮区域 -->
+      <div class="action-section">
+        <button class="download-btn" id="downloadBtn" disabled data-i18n="download_svg"></button>
+      </div>
+      
+      <!-- 图表展示区域 -->
+      <div class="chart-container">
+        <div id="plot" style="width:100%;height:600px;"></div>
+      </div>
+    </section>
+  </main>
+  
+  <script>
+    const i18n = {
+      zh: {
+        nav_analysis: "数据分析",
+        nav_deep: "深度分析",
+
+        video_recognition: "视频识别",
+        id_single: "每个ID点的X和Y分析结果",
+        id_all: "所有ID点的X和Y分析结果(总图)",
+        heatmap: "热力图",
+        sampen: "样本熵",
+        Image_analysis: "图像分析",
+        rqa: "RQA",
+
+        qqq: "请选择Excel文件或拖拽至此处",
+        supported_formats: "支持的格式：Excel, CSV, 等",
+        select_file: "选择文件",
+        waiting_upload: "等待上传...",
+        select_id: "Select ID:",
+        analyze: "分析",
+        download_svg: "下载SVG",
+        points_per_graph: "每个图的点数",
+        run_analysis: "Run Analysis",
+        wait_upload: "请先上传文件",
+        waiting_analysis: "请等待分析完成...",
+        analysis_complete: "分析完成",
+        analysis_error: "分析错误",
+        analysis_success: "分析成功",
+        analysis_error_detail: "分析错误详情：",
+        analysis_success_detail: "分析成功详情：",
+
+        trajectory: "轨迹",
+        frequency: "频率",
+        amplitude: "振幅",
+        frequencyAmplitude: "频率振幅",
+        amplitudeXY: "振幅XY",
+        frequencyXY: "频率XY",
+      },
+      en: {
+        nav_analysis: "Data Analysis",
+        nav_deep: "In-depth Analysis",
+
+        video_recognition: "Video Recognition",
+        id_single: "Single ID Point X and Y Analysis",
+        id_all: "All ID Point X and Y Analysis(Overall)",
+        heatmap: "Heat Map",
+
+        sampen: "Sample Entropy",
+        Image_analysis: "Image Analysis",
+        rqa: "RQA",
+        qqq: "Click to select an Excel file or drag it here",
+        supported_formats: "Supported Formats: Excel, CSV, etc.",
+        select_file: "Select File",
+        waiting_upload: "Waiting for upload...",
+        select_id: "Select ID:",
+        analyze: "Analyze",
+        download_svg: "Download SVG",
+        points_per_graph: "Points per graph",
+        run_analysis: "Run Analysis",
+        wait_upload: "Please upload a file first",
+        waiting_analysis: "Please wait for analysis to complete...",
+        analysis_complete: "Analysis Complete",
+        analysis_error: "Analysis Error",
+        analysis_success: "Analysis Success",
+        analysis_error_detail: "Analysis error details:",
+        analysis_success_detail: "Analysis success details:",
+
+        trajectory: "Trajectory",
+        frequency: "Frequency",
+        amplitude: "Amplitude",
+        frequencyAmplitude: "Frequency Amplitude",
+        amplitudeXY: "Amplitude XY",
+        frequencyXY: "Frequency XY",
+        
+      }
+    };
+
+    let currentLang = localStorage.getItem("lang") || "en";
+
+    function renderLang(lang) {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.innerText = i18n[lang][el.dataset.i18n];
+      });
+      document.getElementById("langSwitch").innerText = lang === "zh" ? "EN" : "中";
+    }
+
+    renderLang(currentLang);
+
+    /* ========= 下拉控制 ========= */
+    const analysis = document.getElementById("data-analysis");
+    const deep = document.getElementById("deep-analysis");
+
+    const ad = document.getElementById("analysis-dropdown");
+    const dd = document.getElementById("deep-dropdown");
+
+    function hideAll() {
+      ad.style.display = dd.style.display = "none";
+    }
+
+    analysis.onclick = e => { 
+      hideAll(); 
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      ad.style.display = "block"; 
+    };
+    deep.onclick = e => { 
+      hideAll();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      dd.style.display = "block"; 
+    };
+
+    document.addEventListener("click", e => {
+      if (![analysis, deep, ad, dd].some(el => el.contains(e.target))) {
+        hideAll();
+      }
+    });
+    window.addEventListener("scroll", () => {
+      hideAll();
+    });
+
+
+    /* ========= 路由映射 ========= */
+    const routes = {
+      videoRecognition: "../index/VideoRecognition.html",
+      idSingle: "../index/IDPointAnalysis.html",
+      idAll: "../index/AllIDPointAnalysis.html",
+      heatmap: "../index/HeatMap.html",
+      sampen: "../DeepAnalysis/SampleEntropy.html",
+      Image_analysis: "{{ url_for('index') }}",
+      rqa: "../DeepAnalysis/RQA.html"
+    };
+
+    document.querySelectorAll(".option-card[data-action]").forEach(card => {
+      card.addEventListener("click", () => {
+        const action = card.dataset.action;
+        if (routes[action]) {
+          location.href = routes[action];
+        }
+      });
+    });
+    document.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = () => {
+        const action = item.dataset.action;
+
+        if (action === "Image_analysis") {
+          location.href = "/index?open=Image_analysis";
+        } else if (routes[action]) {
+          location.href = routes[action];
+        }
+        };
+    });
+
+    /* ========= 语言切换 ========= */
+    document.getElementById("langSwitch").onclick = () => {
+      currentLang = currentLang === "zh" ? "en" : "zh";
+      localStorage.setItem("lang", currentLang);
+      renderLang(currentLang);
+    };
+
+    const pages = {
+      frequencyComparison:"../AllIDPointAnalysis/FrequencyComparison.html",
+      amplitudeComparison:"../AllIDPointAnalysis/AmplitudeComparison.html",
+      frequencyAmplitude:"../AllIDPointAnalysis/FrequencyAmplitude.html",
+      amplitudeXY:"../AllIDPointAnalysis/AmplitudeXY.html",
+      frequencyXY:"../AllIDPointAnalysis/FrequencyXY.html",
+    };
+
+    document.querySelector(".content-left").addEventListener("click", function (e) {
+
+      const card = e.target.closest(".item-card");
+      
+      if (!card) return;
+
+      const action = card.dataset.action;
+
+      if (pages[action]) {
+        window.location.href = pages[action];
+      }
+    });
+      
+      // ===== Excel 文件处理 =====
+      const uploadArea = document.getElementById('uploadArea');
+      const fileInput = document.getElementById('fileInput');
+      const selectFileBtn = document.getElementById('selectFileBtn');
+      const uploadStatus = document.getElementById('uploadStatus');
+      const analyzeBtn = document.getElementById('analyzeBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const inputID = document.getElementById('inputID');
+      let globalData = [];
+      
+      selectFileBtn.addEventListener('click', () => fileInput.click());
+      uploadArea.addEventListener('click', () => fileInput.click());
+      
+      fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+          handleFileUpload(e.target.files[0]);
+        }
+      });
+      
+      uploadArea.addEventListener('dragover', e => {
+        e.preventDefault();
+        uploadArea.classList.add('drag-over');
+      });
+      uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+      uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+          handleFileUpload(e.dataTransfer.files[0]);
+        }
+      });
+      
+      function handleFileUpload(file) {
+        if (!(file.name.endsWith('.xlsx') || file.name.endsWith('.xls') || file.name.endsWith('.csv'))) {
+          showStatus('Please upload an Excel file!', 'error');
+          return;
+        }
+        showStatus('Loading Excel file...', 'uploading');
+        
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          globalData = XLSX.utils.sheet_to_json(sheet);
+          showStatus(`Excel data loaded successfully! Total rows: ${globalData.length}`, 'success');
+        };
+        reader.readAsArrayBuffer(file);
+      }
+      
+      function showStatus(message, status) {
+        uploadStatus.innerHTML = `<p class="${status}">${message}</p>`;
+        uploadStatus.className = 'upload-status ' + status;
+      }
+      
+      // ===== 分析并绘制轨迹 =====
+      analyzeBtn.addEventListener('click', () => {
+        if (globalData.length === 0) {
+          alert("Please upload an Excel file first!");
+          return;
+        }
+        const selectedID = parseInt(inputID.value);
+        if (isNaN(selectedID)) {
+          alert("Please enter a valid ID!");
+          return;
+        }
+        
+        let analyzeData = [];
+        for (let id = 1; id <= selectedID; id++) {
+          globalData.forEach(row => {
+            const x = parseFloat(row['centroidX_' + id]);
+            const y = parseFloat(row['centroidY_' + id]);
+
+            if (Number.isFinite(x) && Number.isFinite(y)) {
+              analyzeData.push({
+                frameID: row.frameID,
+                time: row.Time,
+                ID: id,
+                X: x,
+                Y: y
+              });
+            }
+          });
+        }
+
+
+          if (analyzeData.length === 0) {
+            alert("No data found for ID: " + selectedID);
+            return;
+          }
+        
+        const traces = [];
+        const uniqueIDs = [...new Set(analyzeData.map(d => d.ID))].sort((a,b)=>a-b);
+        uniqueIDs.forEach(id => {
+          const idData = analyzeData.filter(d => d.ID === id);
+          const x = idData.map(d => d.X);
+          const y = idData.map(d => d.Y);
+          traces.push({
+            x: x,
+            y: y,
+            mode: 'markers+lines',
+            type: 'scatter',
+            name: `ID ${id}`
+          });
+        });
+        
+        const layout = {
+          title: `ID ${selectedID} Trajectory Analysis`,
+          xaxis: { title: 'X' },
+          yaxis: { title: 'Y' ,scaleanchor: "x", scaleratio: 1},
+          showlegend: true
+        };
+        
+        Plotly.newPlot('plot', traces, layout);
+        downloadBtn.disabled = false;
+      });
+      
+      // ===== 下载 SVG =====
+      downloadBtn.addEventListener('click', () => {
+        Plotly.downloadImage(document.getElementById('plot'), {
+          format: 'svg',
+          filename: 'TrajectoryAnalysis.svg',
+          width: 1000,
+          height: 800
+        });
+      });
+  </script>
+</body>
+</html>

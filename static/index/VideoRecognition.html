@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Recognition - Lab</title>
+  <link rel="stylesheet" href="../CSS/VideoRecognition.css">
+</head>
+
+<body>
+<header class="main-header">
+  <div class="header-container">
+    <nav class="main-navigation">
+      <ul class="nav-menu">
+
+        <li class="nav-item" id="nav-analysis">
+          <a href="#" class="nav-link">
+            <span class="icon">📈</span>
+            <span data-i18n="nav.analysis"></span>
+          </a>
+        </li>
+
+        <li class="nav-item" id="nav-deep">
+          <a href="#" class="nav-link">
+            <span class="icon">🔍</span>
+            <span data-i18n="nav.deep"></span>
+          </a>
+        </li>
+
+      </ul>
+    </nav>
+
+    <button id="langSwitch">EN</button>
+  </div>
+</header>
+
+<div class="dropdown-container">
+
+  <div class="dropdown-menu" id="analysis-dropdown">
+    <div class="dropdown-item" data-action="videoRecognition" data-i18n="dropdown.recognition"></div>
+    <div class="dropdown-item" data-action="idSingle" data-i18n="dropdown.idSingle"></div>
+    <div class="dropdown-item" data-action="idAll" data-i18n="dropdown.idAll"></div>
+  </div>
+
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="dropdown.Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="dropdown.sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="dropdown.rqa"></div>
+    </div>
+
+</div>
+
+<main class="main-content">
+  <section class="content-section">
+
+    <h2 data-i18n="videoRecognition.title"></h2>
+
+    <div class="recognition-options">
+
+      <div class="option-card" data-page="unprocessed-frames" data-action="unprocessedFrames">
+        <h3 data-i18n="videoRecognition.rawFrames.title"></h3>
+        <p data-i18n="videoRecognition.rawFrames.desc"></p>
+      </div>
+
+      <div class="option-card" data-page="processed-frames" data-action="processedFrames">
+        <h3 data-i18n="videoRecognition.processedFrames.title"></h3>
+        <p data-i18n="videoRecognition.processedFrames.desc"></p>
+      </div>
+
+      <div class="option-card" data-page="excel-table" data-action="excelTable">
+        <h3 data-i18n="videoRecognition.excel.title"></h3>
+        <p data-i18n="videoRecognition.excel.desc"></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const i18n = {
+  en: {
+    nav: {
+      analysis: "Data Analysis",
+      deep: "In-depth Analysis"
+    },
+    dropdown: {
+      recognition: "Video Recognition",
+      idSingle: "Each ID Point's X and Y Analysis",
+      idAll: "All ID Point's X and Y Analysis",
+      heatmap: "Heat Map",
+      sampen: "Sample Entropy",
+      Image_analysis: "Image Analysis",
+      rqa: "RQA"
+    },
+    videoRecognition: {
+      title: "Video Recognition Options",
+      rawFrames: { title: "Raw Frames", desc: "View each unprocessed video frame" },
+      processedFrames: { title: "Processed Frames", desc: "View processed video frames" },
+      excel: { title: "Excel Table", desc: "View generated Excel data" },
+    }
+  },
+  zh: {
+    nav: {
+      analysis: "数据分析",
+      deep: "深度分析"
+    },
+    dropdown: {
+      recognition: "视频识别",
+      idSingle: "每个ID点的X和Y分析结果",
+      idAll: "所有ID点的X和Y分析结果",
+      heatmap: "热力图",
+      sampen: "样本熵",
+      Image_analysis: "图像分析",
+      rqa: "RQA"
+    },
+    videoRecognition: {
+      title: "视频识别选项",
+      rawFrames: { title: "未处理每一帧图片", desc: "查看原始视频帧图片" },
+      processedFrames: { title: "处理后每一帧图片", desc: "查看经过处理的视频帧图片" },
+      excel: { title: "Excel 表格", desc: "查看生成的 Excel 数据表格" },
+    }
+  }
+};
+
+function applyI18n(lang) {
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const keys = el.dataset.i18n.split(".");
+    let value = i18n[lang];
+    keys.forEach(k => value = value?.[k]);
+    if (value) el.textContent = value;
+  });
+  langSwitch.textContent = lang === "zh" ? "EN" : "中";
+}
+
+let currentLang = localStorage.getItem("lang") || "en";
+applyI18n(currentLang);
+
+langSwitch.addEventListener("click", () => {
+  currentLang = currentLang === "zh" ? "en" : "zh";
+  localStorage.setItem("lang", currentLang);
+  applyI18n(currentLang);
+});
+
+const navMap = {
+  "nav-analysis": "analysis-dropdown",
+  "nav-deep": "deep-dropdown"
+};
+
+function hideAllDropdowns() {
+  Object.values(navMap).forEach(id => {
+    document.getElementById(id).style.display = "none";
+  });
+}
+
+Object.entries(navMap).forEach(([navId, dropId]) => {
+  document.getElementById(navId).addEventListener("click", e => {
+    e.preventDefault();
+    e.stopPropagation();
+    hideAllDropdowns();
+    document.getElementById(dropId).style.display = "block";
+  });
+});
+
+document.querySelectorAll(".dropdown-menu").forEach(menu => {
+  menu.addEventListener("click", e => e.stopPropagation());
+});
+
+document.addEventListener("click", hideAllDropdowns);
+
+const routes = {
+  videoRecognition: "../index/VideoRecognition.html",
+  idSingle: "../index/IDPointAnalysis.html",
+  idAll: "../index/AllIDPointAnalysis.html",
+  heatmap: "../index/HeatMap.html",
+  sampen: "../DeepAnalysis/SampleEntropy.html",
+  Image_analysis: "{{ url_for('index') }}",
+  rqa: "../DeepAnalysis/RQA.html",
+  unprocessedFrames: "../VideoRecognition/UnprocessedFrames.html",
+  processedFrames: "../VideoRecognition/ProcessedFrames.html",
+  excelTable: "../VideoRecognition/ExcelTable.html",
+};
+
+document.querySelectorAll(".option-card[data-action]").forEach(card => {
+  card.addEventListener("click", () => {
+    const action = card.dataset.action;
+    if (routes[action]) {
+      location.href = routes[action];
+    }
+  });
+});
+document.querySelectorAll(".dropdown-item").forEach(item => {
+  item.onclick = () => {
+    const action = item.dataset.action;
+
+    if (action === "Image_analysis") {
+      location.href = "/index?open=Image_analysis";
+    } else if (routes[action]) {
+      location.href = routes[action];
+    }
+    };
+});
+
+    
+
+</script>
+
+
+</body>
+</html>

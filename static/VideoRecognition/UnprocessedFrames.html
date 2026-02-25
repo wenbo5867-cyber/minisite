@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unprocessed Frames - Laboratory</title>
+  <link rel="stylesheet" href="../CSS/001.css">
+  <link rel="stylesheet" href="../CSS/VideoRecognition/UnprocessedFrames.css">
+</head>
+<body>
+  <header class="main-header">
+    <div class="header-container">
+
+      <!-- 导航 -->
+      <nav class="main-navigation">
+        <ul class="nav-menu">
+
+          <li class="nav-item" id="data-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">📈</span>
+              <span class="text" data-i18n="nav_analysis"></span>
+            </a>
+          </li>
+
+          <li class="nav-item" id="deep-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">🔍</span>
+              <span class="text" data-i18n="nav_deep"></span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- 语言切换 -->
+      <button id="langSwitch" style="margin-left:20px;">中</button>
+    </div>
+  </header>
+
+  <!-- ================= Dropdown ================= -->
+  <div class="dropdown-container">
+    <!-- 数据分析 -->
+    <div class="dropdown-menu" id="analysis-dropdown">
+      <div class="dropdown-item" data-action="videoRecognition" data-i18n="video_recognition"></div>
+      <div class="dropdown-item" data-action="idSingle" data-i18n="id_single"></div>
+      <div class="dropdown-item" data-action="idAll" data-i18n="id_all"></div>
+    </div>
+
+    <!-- 深度分析 -->
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="rqa"></div>
+    </div>
+  </div>
+  
+  <main class="main-content" style="margin-top: 100px;">
+
+    <section class="content-left">
+      <div class="recognition-options">
+
+        <div class="item-card" data-page="unprocessed-frames" data-action="unprocessedFrames">
+          <h3 data-i18n="rawFrames" style="color: #1976d2;"></h3>
+        </div>
+
+        <div class="item-card" data-page="processed-frames" data-action="processedFrames">
+          <h3 data-i18n="processedFrames"></h3>
+
+        </div>
+
+        <div class="item-card" data-page="excel-table" data-action="excelTable">
+          <h3 data-i18n="excel"></h3>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-section">
+      
+      <!-- 上传视频区域 -->
+      <div class="upload-section">
+        <div class="upload-area" id="uploadArea" topic="uploadArea">
+          <div class="upload-icon">📁</div>
+          <p data-i18n="qqq" data-action="qqq"></p>
+          <p class="file-info" data-i18n="supported_formats" data-action="supported_formats"></p>
+          <input type="file" id="fileInput" accept="video/*" style="display: none;">
+        </div>
+        <button class="upload-btn" id="selectFileBtn" data-i18n="qqq" data-action="qqq"></button>
+      </div>
+      
+      <!-- 状态显示区域 -->
+      <div class="status-section">
+        <div class="upload-status" id="uploadStatus">
+          <p data-i18n="waiting_upload"></p>
+        </div>
+        <progress id="progress" value="0" max="100" style="width:300px; display:none;"></progress>
+      </div>
+      
+      <!-- 操作按钮区域 -->
+      <div class="action-section">
+        <button class="download-btn" id="downloadBtn" disabled data-i18n="download_unprocessed"></button>
+      </div>
+      
+      <!-- 图片展示区域 -->
+      <div class="frames-container" id="framesContainer"></div>
+    </section>
+  </main>
+
+  <canvas id="canvas" style="display:none"></canvas>
+
+  <!-- 引入 JSZip / FileSaver -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+  <script>
+    const i18n = {
+      zh: {
+        nav_analysis: "数据分析",
+        nav_deep: "深度分析",
+        video_recognition: "视频识别",
+        id_single: "每个ID点X和Y分析结果",
+        id_all: "所有ID点X和Y分析结果(总图)",
+        heatmap: "热力图",
+        sampen: "样本熵",
+        Image_analysis: "图像分析",
+        rqa: "RQA",
+        qqq: "点击选择视频文件或拖拽文件到此处",
+        supported_formats: "支持的格式：MP4、AVI、MOV 等",
+        waiting_upload: "等待上传...",
+        download_unprocessed: "下载未处理帧ZIP",
+        processed_frames: "处理帧（ZIP）",
+        processing_frames: "正在处理帧...",
+        processing_complete: "处理完成！",
+        processing_failed: "处理失败！",
+
+        rawFrames: "未处理每一帧图片",
+        processedFrames: "处理后每一帧图片",
+        excel: "Excel 表格",
+      },
+      en: {
+        nav_analysis: "Data Analysis",
+        nav_deep: "In-depth Analysis",
+        video_recognition: "Video Recognition",
+        id_single: "Single ID X and Y Analysis",
+        id_all: "All ID X and Y Analysis(Overall)",
+        heatmap: "Heat Map",
+        sampen: "Sample Entropy",
+        Image_analysis: "Image Analysis",
+        rqa: "RQA",
+        qqq: "Click to select a video file or drag it here",
+        supported_formats: "Supported Formats: MP4, AVI, MOV, etc.",
+        waiting_upload: "Waiting for upload...",
+        download_unprocessed: "Download Unprocessed Frames ZIP",
+        processed_frames: "Processed Frames (ZIP)",
+        processing_frames: "Processing Frames...",
+        processing_complete: "Processing Complete!",
+        processing_failed: "Processing Failed!",
+
+        rawFrames: "Raw Frames",
+        processedFrames: "Processed Frames",
+        excel: "Excel Table",
+      }
+    };
+
+    let currentLang = localStorage.getItem("lang") || "en";
+
+    function renderLang(lang) {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.innerText = i18n[lang][el.dataset.i18n];
+      });
+      document.getElementById("langSwitch").innerText = lang === "zh" ? "EN" : "中";
+    }
+
+    renderLang(currentLang);
+
+    /* ========= 下拉控制 ========= */
+    const analysis = document.getElementById("data-analysis");
+    const deep = document.getElementById("deep-analysis");
+
+    const ad = document.getElementById("analysis-dropdown");
+    const dd = document.getElementById("deep-dropdown");
+
+    function hideAll() {
+      ad.style.display = dd.style.display = "none";
+    }
+
+    analysis.onclick = e => { 
+      hideAll(); 
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      ad.style.display = "block"; 
+    };
+    deep.onclick = e => { 
+      hideAll();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      dd.style.display = "block"; 
+    };
+
+    document.addEventListener("click", e => {
+      if (![analysis, deep, ad, dd].some(el => el.contains(e.target))) {
+        hideAll();
+      }
+    });
+    window.addEventListener("scroll", () => {
+      hideAll();
+    });
+
+    /* ========= 路由映射 ========= */
+    const routes = {
+      videoRecognition: "../index/VideoRecognition.html",
+      idSingle: "../index/IDPointAnalysis.html",
+      idAll: "../index/AllIDPointAnalysis.html",
+      heatmap: "../index/HeatMap.html",
+      sampen: "../DeepAnalysis/SampleEntropy.html",
+      Image_analysis: "{{ url_for('index') }}",
+      rqa: "../DeepAnalysis/RQA.html"
+    };
+
+    document.querySelectorAll(".option-card[data-action]").forEach(card => {
+      card.addEventListener("click", () => {
+        const action = card.dataset.action;
+        if (routes[action]) {
+          location.href = routes[action];
+        }
+      });
+    });
+    document.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = () => {
+        const action = item.dataset.action;
+
+        if (action === "Image_analysis") {
+          location.href = "/index?open=Image_analysis";
+        } else if (routes[action]) {
+          location.href = routes[action];
+        }
+        };
+    });
+
+    /* ========= 语言切换 ========= */
+    document.getElementById("langSwitch").onclick = () => {
+      currentLang = currentLang === "zh" ? "en" : "zh";
+      localStorage.setItem("lang", currentLang);
+      renderLang(currentLang);
+    };
+
+    const pages = {
+      processedFrames: "../VideoRecognition/ProcessedFrames.html",
+      excelTable: "../VideoRecognition/ExcelTable.html"
+    };
+
+    // 监听整个 recognition-options（事件委托）
+    document.querySelector(".recognition-options").addEventListener("click", function (e) {
+      
+      // 找到最近的 .item-card
+      const card = e.target.closest(".item-card");
+      
+      if (!card) return;
+
+      const action = card.dataset.action;
+
+      if (pages[action]) {
+        window.location.href = pages[action];
+      }
+    });
+
+      // ================== 视频转帧逻辑 ==================
+      const uploadArea = document.getElementById('uploadArea');
+      const fileInput = document.getElementById('fileInput');
+      const selectFileBtn = document.getElementById('selectFileBtn');
+
+      const uploadStatus = document.getElementById('uploadStatus');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const framesContainer = document.getElementById('framesContainer');
+      const progress = document.getElementById('progress');
+      const canvas = document.getElementById('canvas');
+
+      const ctx = canvas.getContext("2d");
+
+      let frames = [];
+      let fps = 5; // 抽帧率（可调整）
+      let uploadedVideo = null;
+
+      function showStatus(message, status) {
+        uploadStatus.innerHTML = `<p class="${status}">${message}</p>`;
+        uploadStatus.className = 'upload-status ' + status;
+      }
+
+      selectFileBtn.addEventListener('click', () => fileInput.click());
+      uploadArea.addEventListener('click', () => fileInput.click());
+
+      uploadArea.addEventListener('dragover', e => {
+        e.preventDefault(); 
+        uploadArea.classList.add('drag-over');
+      });
+      uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('drag-over');
+      });
+      uploadArea.addEventListener('drop', e => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) {
+          const file = e.dataTransfer.files[0];
+          if (file.type.startsWith('video/')) handleFileUpload(file);
+          else showStatus('请选择视频文件！', 'error');
+        }
+      });
+
+      fileInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) {
+          handleFileUpload(e.target.files[0]);
+        }
+      });
+
+      async function handleFileUpload(file) {
+        if (!file.type.startsWith('video/')) {
+          showStatus(i18n[currentLang].qqq, 'error'); 
+          return;
+        }
+        uploadedVideo = file;
+        showStatus(
+          `${i18n[currentLang].waiting_upload}<br>
+          ${i18n[currentLang].supported_formats}: ${file.name}<br>
+          ${i18n[currentLang].waiting_upload}: ${(file.size/1024/1024).toFixed(2)} MB`
+          , 'info'
+        );
+        await extractFrames(file);
+      }
+
+      async function extractFrames(file) {
+        const video = document.createElement("video");
+        video.src = URL.createObjectURL(file);
+        video.muted = true;
+        await video.play();
+        video.pause();
+
+        const duration = video.duration;
+        const totalFrames = Math.floor(duration * fps);
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        frames = [];
+        framesContainer.innerHTML = '';
+        progress.style.display = "block";
+
+        function captureFrame(time, index) {
+          return new Promise(resolve => {
+            video.currentTime = time;
+            video.onseeked = () => {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob(blob => {
+                frames.push({index, blob});
+                if (index < 30) { // 只展示前30张
+                  const url = URL.createObjectURL(blob);
+                  const frameDiv = document.createElement('div');
+                  frameDiv.className = 'frame-item';
+                  frameDiv.innerHTML = `<img src="${url}" alt="Frame ${index}"><p>${i18n[currentLang].processed_frames} ${index}</p>`;
+                  framesContainer.appendChild(frameDiv);
+                }
+                progress.value = (frames.length / totalFrames) * 100;
+                resolve();
+              }, "image/jpeg", 0.9);
+            };
+          });
+        }
+
+        for (let i=0; i<totalFrames; i++) {
+          const time = i / fps;
+          await captureFrame(time, i);
+        }
+
+        showStatus(
+          `${i18n[currentLang].processing_complete}<br>
+          ${i18n[currentLang].total_frames}: ${frames.length}`
+          , 'success'
+        );
+        downloadBtn.disabled = false;
+      }
+
+      downloadBtn.addEventListener('click', async () => {
+        if (!frames.length) return;
+        showStatus(`${i18n[currentLang].packing_zip}...`, 'info');
+        const zip = new JSZip();
+        const folder = zip.folder("frames");
+        frames.forEach(f => {
+          folder.file(`frame_${String(f.index).padStart(5, "0")}.jpg`, f.blob);
+        });
+        const content = await zip.generateAsync({type:"blob"});
+        saveAs(content, "video_frames.zip");
+        showStatus(`${i18n[currentLang].download_complete}`, 'success');
+      });
+  </script>
+</body>
+</html>

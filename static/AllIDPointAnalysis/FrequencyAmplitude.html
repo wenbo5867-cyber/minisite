@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>频率振幅分析</title>
+<link rel="stylesheet" href="../CSS/001.css">
+<link rel="stylesheet" href="../CSS/IDPointAnalysis/ChartPage.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
+
+</head>
+<body>
+    <header class="main-header">
+    <div class="header-container">
+      <!-- 导航 -->
+      <nav class="main-navigation">
+        <ul class="nav-menu">
+          <li class="nav-item" id="data-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">📈</span>
+              <span class="text" data-i18n="nav_analysis"></span>
+            </a>
+          </li>
+          <li class="nav-item" id="deep-analysis">
+            <a href="#" class="nav-link">
+              <span class="icon">🔍</span>
+              <span class="text" data-i18n="nav_deep"></span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+      <!-- 语言切换 -->
+      <button id="langSwitch" style="margin-left:20px;">EN</button>
+    </div>
+  </header>
+  
+  <!-- 下拉选项框 -->
+  <div class="dropdown-container">
+    
+    <div class="dropdown-menu" id="analysis-dropdown">
+      <div class="dropdown-item" data-i18n="video_recognition" data-action="videoRecognition"></div>
+      <div class="dropdown-item" data-i18n="id_single" data-action="idSingle"></div>
+      <div class="dropdown-item" data-i18n="id_all" data-action="idAll"></div>
+    </div>
+
+    <!-- 深度分析下拉框-->
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="rqa"></div>
+    </div>
+  </div>
+  
+  <main class="main-content" style="margin-top:100px;">
+    <section class="content-left">
+
+        <div class="item-card" data-page="trajectory-comparison" data-action="trajectoryComparison">
+          <h3 data-i18n="trajectory"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-comparison" data-action="frequencyComparison">
+          <h3 data-i18n="frequency"></h3>
+        </div>
+
+        <div class="item-card" data-page="amplitude-comparison" data-action="amplitudeComparison">
+          <h3 data-i18n="amplitude"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-amplitude" data-action="frequencyAmplitude">
+          <h3 data-i18n="frequencyAmplitude"  style="color: #1f6feb;"></h3>
+        </div>
+
+        <div class="item-card" data-page="amplitude-xy" data-action="amplitudeXY">
+          <h3 data-i18n="amplitudeXY"></h3>
+        </div>
+
+        <div class="item-card" data-page="frequency-xy" data-action="frequencyXY">
+          <h3 data-i18n="frequencyXY"></h3>
+        </div>
+    </section>
+
+    <section class="content-section">
+      
+      
+      <!-- 上传Excel区域 -->
+      <div class="upload-section" >
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon">📊</div>
+          <p data-i18n="qqq">点击选择Excel文件或拖拽文件到此处</p>
+          <p class="file-info" data-i18n="supported_formats">支持XLSX、CSV等格式</p>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+        </div>
+        <button class="upload-btn" id="selectFileBtn" data-i18n="select_file">选择Excel文件</button>
+      </div>
+      
+      <!-- 输入 ID -->
+      <div class="action-section">
+        <label for="selectedID" data-i18n="select_id">输入分析ID:</label>
+        <input type="number" id="selectedID">
+        <button onclick="analyze()">开始分析</button>
+
+      </div>
+      
+      <!-- 状态显示区域 -->
+      <div class="status-section">
+        <div class="upload-status" id="uploadStatus">
+          <p data-i18n="waiting_upload"></p>
+        </div>
+      </div>
+      
+      <!-- 操作按钮区域 -->
+      <div class="action-section">
+        <button class="download-btn" id="downloadBtn" disabled data-i18n="download_svg"></button>
+      </div>
+      
+      <!-- 图表展示区域 -->
+      <div class="chart-container">
+        <div id="plot" style="width:100%;height:600px;"></div>
+      </div>
+    </section>
+  </main>
+
+<div id="plot"></div>
+
+<script>
+   const i18n = {
+      zh: {
+        nav_analysis: "数据分析",
+        nav_deep: "深度分析",
+
+        video_recognition: "视频识别",
+        id_single: "每个ID点的X和Y分析结果",
+        id_all: "所有ID点的X和Y分析结果(总图)",
+        heatmap: "热力图",
+        sampen: "样本熵",
+        Image_analysis: "图像分析",
+        rqa: "RQA",
+        qqq: "请选择Excel文件或拖拽至此处",
+        supported_formats: "支持的格式：Excel, CSV, 等",
+        select_file: "选择文件",
+        waiting_upload: "等待上传...",
+        select_id: "Select ID:",
+        points_per_graph: "每个图的点数",
+        run_analysis: "Run Analysis",
+        wait_upload: "请先上传文件",
+        waiting_analysis: "请等待分析完成...",
+        analysis_complete: "分析完成",
+        analysis_error: "分析错误",
+        analysis_success: "分析成功",
+        analysis_error_detail: "分析错误详情：",
+        analysis_success_detail: "分析成功详情：",
+        generate_chart: "生成图表",
+        download_svg: "下载 SVG",
+
+        trajectory: "轨迹",
+        frequency: "频率",
+        amplitude: "振幅",
+        frequencyAmplitude: "频率振幅",
+        amplitudeXY: "振幅XY",
+        frequencyXY: "频率XY",
+      },
+      en: {
+        nav_analysis: "Data Analysis",
+        nav_deep: "In-depth Analysis",
+
+        video_recognition: "Video Recognition",
+        id_single: "Single ID Point X and Y Analysis",
+        id_all: "All ID Point X and Y Analysis(Overall)",
+        heatmap: "Heat Map",
+        sampen: "Sample Entropy",
+        Image_analysis: "Image Analysis",
+        rqa: "RQA",
+        qqq: "Click to select an Excel file or drag it here",
+        supported_formats: "Supported Formats: Excel, CSV, etc.",
+        select_file: "Select File",
+        waiting_upload: "Waiting for upload...",
+        select_id: "Select ID:",
+        points_per_graph: "Points per graph",
+        run_analysis: "Run Analysis",
+        wait_upload: "Please upload a file first",
+        waiting_analysis: "Please wait for analysis to complete...",
+        analysis_complete: "Analysis Complete",
+        analysis_error: "Analysis Error",
+        analysis_success: "Analysis Success",
+        analysis_error_detail: "Analysis error details:",
+        analysis_success_detail: "Analysis success details:",
+        generate_chart: "Generate Chart",
+        download_svg: "Download SVG",
+
+        trajectory: "Trajectory",
+        frequency: "Frequency",
+        amplitude: "Amplitude",
+        frequencyAmplitude: "Frequency Amplitude",
+        amplitudeXY: "Amplitude XY",
+        frequencyXY: "Frequency XY",
+      },
+    };
+
+    let currentLang = localStorage.getItem("lang") || "en";
+
+    function renderLang(lang) {
+      document.querySelectorAll("[data-i18n]").forEach(el => {
+        el.innerText = i18n[lang][el.dataset.i18n];
+      });
+      document.getElementById("langSwitch").innerText = lang === "zh" ? "EN" : "中";
+    }
+
+    renderLang(currentLang);
+
+    /* ========= 路由映射 ========= */
+    const routes = {
+      videoRecognition: "../index/VideoRecognition.html",
+      idSingle: "../index/IDPointAnalysis.html",
+      idAll: "../index/AllIDPointAnalysis.html",
+      heatmap: "../index/HeatMap.html",
+      sampen: "../DeepAnalysis/SampleEntropy.html",
+      Image_analysis: "{{ url_for('index') }}",
+      rqa: "../DeepAnalysis/RQA.html"
+    };
+
+    /* ========= 下拉控制 ========= */
+    const analysis = document.getElementById("data-analysis");
+    const deep = document.getElementById("deep-analysis");
+
+    const ad = document.getElementById("analysis-dropdown");
+    const dd = document.getElementById("deep-dropdown");
+
+    function hideAllDropdown() {
+      ad.style.display = "none";
+      dd.style.display = "none";
+    }
+
+    analysis.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      hideAllDropdown();
+      ad.style.display = "block";
+    });
+
+    deep.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      hideAllDropdown();
+      dd.style.display = "block";
+    });
+
+    
+    document.querySelectorAll(".option-card[data-action]").forEach(card => {
+      card.addEventListener("click", () => {
+        const action = card.dataset.action;
+        if (routes[action]) {
+          location.href = routes[action];
+        }
+      });
+    });
+    document.querySelectorAll(".dropdown-item").forEach(item => {
+      item.onclick = () => {
+        const action = item.dataset.action;
+
+        if (action === "Image_analysis") {
+          location.href = "/index?open=Image_analysis";
+        } else if (routes[action]) {
+          location.href = routes[action];
+        }
+        };
+    });
+    /* ========= 点击空白关闭下拉 ========= */
+    document.addEventListener("click", e => {
+      if (!e.target.closest(".dropdown-container") &&
+          !e.target.closest(".nav-item")) {
+        hideAllDropdown();
+      }
+    });
+
+
+
+    /* ========= 语言切换 ========= */
+    document.getElementById("langSwitch").onclick = () => {
+      currentLang = currentLang === "zh" ? "en" : "zh";
+      localStorage.setItem("lang", currentLang);
+      renderLang(currentLang);
+    };
+
+    const pages = {
+      trajectoryComparison:"../AllIDPointAnalysis/TrajectoryComparison.html",
+      frequencyComparison:"../AllIDPointAnalysis/FrequencyComparison.html",
+      amplitudeComparison:"../AllIDPointAnalysis/AmplitudeComparison.html",
+      amplitudeXY:"../AllIDPointAnalysis/AmplitudeXY.html",
+      frequencyXY:"../AllIDPointAnalysis/FrequencyXY.html",
+    };
+
+    document.querySelector(".content-left").addEventListener("click", function (e) {
+
+      const card = e.target.closest(".item-card");
+      
+      if (!card) return;
+
+      const action = card.dataset.action;
+
+      if (pages[action]) {
+        window.location.href = pages[action];
+      }
+    });
+
+    <!-- ========== 频率振幅分析逻辑 ========== -->
+    let plotReady = false;
+    // === 修复 Excel 上传区域 ===
+    document.getElementById("fileInput").addEventListener("change", function () {
+    if (!this.files.length) return;
+    document.getElementById("uploadStatus").innerHTML = "<p data-i18n='file_uploaded'>" + this.files[0].name + "</p>";
+    });
+
+// 点击按钮选择文件
+document.getElementById("selectFileBtn").addEventListener("click", function () {
+    document.getElementById("fileInput").click();
+});
+
+// 点击上传区域也能选择文件
+document.getElementById("uploadArea").addEventListener("click", function () {
+    document.getElementById("fileInput").click();
+});
+
+// 拖拽进入
+document.getElementById("uploadArea").addEventListener("dragover", function (e) {
+    e.preventDefault();
+    this.classList.add("dragover");
+});
+
+// 拖拽离开
+document.getElementById("uploadArea").addEventListener("dragleave", function () {
+    this.classList.remove("dragover");
+});
+
+// 松开拖拽：获取文件
+document.getElementById("uploadArea").addEventListener("drop", function (e) {
+    e.preventDefault();
+    this.classList.remove("dragover");
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    document.getElementById("fileInput").files = e.dataTransfer.files;
+    document.getElementById("uploadStatus").innerHTML = "<p data-i18n='file_uploaded'>" + file.name + "</p>";
+});
+
+// 选择文件后显示状态
+document.getElementById("fileInput").addEventListener("change", function () {
+    if (!this.files.length) return;
+    document.getElementById("uploadStatus").innerHTML = "<p data-i18n='file_uploaded'>" + this.files[0].name + "</p>";
+});
+
+
+function analyze() {
+    const fileInput = document.getElementById('fileInput');
+    const selectedID = parseInt(document.getElementById('selectedID').value);
+    const maxHz = 5; // 设定最大频率阈值，超过跳过
+
+    if (!fileInput.files.length) {
+        alert('Please select an Excel file');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, {type: 'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(sheet, {raw:true});
+
+        if (!jsonData || jsonData.length === 0) {
+            alert('Excel file is empty');
+            return;
+        }
+
+        // ---------- Excel读取修改：宽表转成长表 ----------
+        const longData = [];
+        jsonData.forEach(row => {
+            const time = Number(row.Time);
+            const frameID = Number(row.frameID);
+            for (let i = 1; i <= 8; i++) {
+                const x = Number(row[`centroidX_${i}`]);
+                const y = Number(row[`centroidY_${i}`]);
+                if (isNaN(x) || isNaN(y)) continue; // 跳过无效点
+                longData.push({
+                    id: i,
+                    frameID,
+                    time,
+                    x,
+                    y
+                });
+            }
+        });
+
+        // 获取所有可用 ID
+        const uniqueIDs = [...new Set(longData.map(d => d.id))].sort((a,b)=>a-b);
+        if (!uniqueIDs.includes(selectedID)) {
+            alert('ID does not exist');
+            return;
+        }
+
+        const analyzeIDs = uniqueIDs.filter(id => id <= selectedID);
+
+        // ---------- 准备绘图数据 ----------
+        const combinedFreq = [];
+        const combinedAmp = [];
+
+        analyzeIDs.forEach(id => {
+            const idData = longData.filter(d => d.id === id);
+            if (idData.length < 5) return; // 数据太少，跳过
+
+            const timeArr = idData.map(d => d.time);
+            const xArr = idData.map(d => d.x);
+            const yArr = idData.map(d => d.y);
+
+            const Fs = 1 / averageDiff(timeArr);
+
+            const xFiltered = smooth(xArr, 5);
+            const yFiltered = smooth(yArr, 5);
+
+            const maxHz = 5; // 允许的最大频率
+            const meanFreqX = calcMeanFreq(xFiltered, Fs, maxHz);
+            const meanFreqY = calcMeanFreq(yFiltered, Fs, maxHz);
+
+            const meanFreq = average([meanFreqX, meanFreqY]);
+
+            // ---------- 如果频率太高就跳过 ----------
+
+            combinedFreq.push(meanFreq);
+
+            const ampX = meanAbsDeviation(xFiltered);
+            const ampY = meanAbsDeviation(yFiltered);
+            combinedAmp.push(average([ampX, ampY]));
+        });
+
+        if (combinedFreq.length === 0) {
+            alert('No valid ID points meet the frequency condition');
+            return;
+        }
+
+        // ---------- 绘制散点图 ----------
+        const trace = {
+            x: combinedFreq,
+            y: combinedAmp,
+            mode: 'markers+text',
+            type: 'scatter',
+            text: analyzeIDs.map(id => 'ID ' + id),
+            textposition: 'top right',
+            marker: { size: 12, color: combinedFreq, colorscale: 'Turbo', showscale: true }
+        };
+
+        Plotly.newPlot('plot', [trace], {
+          title: 'Frequency-Amplitude Relationship for ID Points',
+          xaxis: { title: 'Average Frequency (Hz)' },
+          yaxis: { title: 'Average Amplitude' }
+      }).then(() => {
+          plotReady = true;
+          document.getElementById('downloadBtn').disabled = false;
+      });
+    };
+
+    reader.readAsArrayBuffer(fileInput.files[0]);
+}
+
+// ---------- 工具函数 ----------
+function averageDiff(arr){
+    const diffs = [];
+    for(let i=1;i<arr.length;i++) diffs.push(arr[i]-arr[i-1]);
+    return diffs.reduce((a,b)=>a+b,0)/Math.max(diffs.length,1);
+}
+
+function average(arr){
+    if(!arr.length) return 0;
+    return arr.reduce((a,b)=>a+b,0)/arr.length;
+}
+
+function smooth(arr, windowSize){
+    const out = [];
+    for(let i=0;i<arr.length;i++){
+        let sum=0, count=0;
+        for(let j=i;j>i-windowSize && j>=0;j--){
+            sum += arr[j]; count++;
+        }
+        out.push(sum/count);
+    }
+    return out;
+}
+
+// 计算频率峰值的简化示例
+function calcMeanFreq(signal, Fs, maxFreq = null){
+    const freqArr = calcFreq(signal, Fs); // 原来的峰值法计算瞬时频率
+    let filteredFreqs = freqArr;
+
+    if(maxFreq !== null){
+        // 过滤掉超过阈值的频率
+        filteredFreqs = freqArr.filter(f => f <= maxFreq);
+    }
+
+    // 返回平均频率，如果没有有效频率，返回0
+    return filteredFreqs.length ? average(filteredFreqs) : 0;
+}
+function calcFreq(signal, Fs){
+    const peaks = [];
+    for(let i=1;i<signal.length-1;i++){
+        if(signal[i] > signal[i-1] && signal[i] > signal[i+1]){
+            peaks.push(i);
+        }
+    }
+
+    const freq = [];
+    for(let i=0;i<peaks.length-1;i++){
+        const dt = (peaks[i+1]-peaks[i])/Fs;
+        if(dt>0) freq.push(1/dt);
+    }
+
+    // 如果没有有效峰值，返回空数组
+    return freq;
+}
+
+
+function meanAbsDeviation(arr){
+    const mean = average(arr);
+    return average(arr.map(v=>Math.abs(v-mean)));
+}
+
+function findPeaks(arr) {
+    const peaks = [];
+    for (let i=1;i<arr.length-1;i++) {
+        if (arr[i] > arr[i-1] && arr[i] > arr[i+1]) peaks.push(i);
+    }
+    return peaks;
+}
+document.getElementById('downloadBtn').addEventListener('click', function () {
+    if (!plotReady) {
+        alert('Please generate the chart first');
+        return;
+    }
+
+    Plotly.downloadImage('plot', {
+        format: 'svg',
+        filename: 'Frequency_Amplitude_Analysis',
+        height: 600,
+        width: 900,
+        scale: 1
+    });
+});
+
+</script>
+</body>
+</html>

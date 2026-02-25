@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RQA Frontend Calculation</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { margin-top: 5px; }
+    table { border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #999; padding: 4px 8px; }
+  </style>
+  <link rel="stylesheet" href="../CSS/001.css"></link>
+</head>
+
+<body>
+<header class="main-header">
+  <div class="header-container">
+    <nav class="main-navigation">
+      <ul class="nav-menu">
+
+        <li class="nav-item" id="nav-analysis">
+          <a href="#" class="nav-link">
+            <span class="icon">📈</span>
+            <span data-i18n="nav.analysis"></span>
+          </a>
+        </li>
+
+        <li class="nav-item" id="nav-deep">
+          <a href="#" class="nav-link">
+            <span class="icon">🔍</span>
+            <span data-i18n="nav.deep"></span>
+          </a>
+        </li>
+
+      </ul>
+    </nav>
+
+    <button id="langSwitch">EN</button>
+  </div>
+</header>
+
+<div class="dropdown-container">
+
+  <div class="dropdown-menu" id="analysis-dropdown">
+    <div class="dropdown-item" data-action="videoRecognition" data-i18n="dropdown.recognition"></div>
+    <div class="dropdown-item" data-action="idSingle" data-i18n="dropdown.idSingle"></div>
+    <div class="dropdown-item" data-action="idAll" data-i18n="dropdown.idAll"></div>
+  </div>
+
+    <div class="dropdown-menu" id="deep-dropdown">
+      <div class="dropdown-item" data-action="Image_analysis" data-i18n="dropdown.Image_analysis" id="Image_analysisSection"></div>
+      <div class="dropdown-item" data-action="sampen" data-i18n="dropdown.sampen"></div>
+      <div class="dropdown-item" data-action="rqa" data-i18n="dropdown.rqa"></div>
+    </div>
+
+</div>
+
+<main class="main-content" style="padding: 20px;">
+  <section >
+    <h2>RQA Calculation</h2>
+
+    <label>Excel
+    <input type="file" id="fileInput" accept=".xlsx,.xls">
+    </label>
+
+    <label>Sheet
+    <select id="sheetSelect"></select>
+    </label>
+
+    <hr>
+
+    <label>
+    <input type="checkbox" id="useFilter" checked> Enable low-pass filter
+    </label>
+
+    <label>fs (Hz)
+    <input type="number" id="fs" value="60">
+    </label>
+
+    <label>fc (Hz)
+    <input type="number" id="fc" value="5">
+    </label>
+
+    <hr>
+
+    <h3>RQA Parameters</h3>
+
+    <label>embedding m <input type="number" id="m" value="2"></label>
+    <label>tau <input type="number" id="tau" value="7"></label>
+    <label>lmin <input type="number" id="lmin" value="2"></label>
+    <label>vmin <input type="number" id="vmin" value="2"></label>
+    <label>k_value <input type="number" step="0.1" id="k" value="0.5"></label>
+    <label>min_points <input type="number" id="minpts" value="200"></label>
+
+    <br>
+    <button onclick="runRQA()">Run RQA</button>
+    <button onclick="exportExcel()">Export Excel</button>
+
+    <div id="output"></div>
+  </section>
+</main>
+
+
+<script>
+  const i18n = {
+    en: {
+      nav: {
+        analysis: "Data Analysis",
+        deep: "In-depth Analysis"
+      },
+      dropdown: {
+        recognition: "Video Recognition",
+        idSingle: "Each ID Point's X and Y Analysis",
+        idAll: "All ID Point's X and Y Analysis(Overall)",
+        heatmap: "Heat Map",
+        sampen: "Sample Entropy",
+        Image_analysis: "Image Analysis",
+        rqa: "RQA"
+      },
+    },
+    zh: {
+      nav: {
+        analysis: "数据分析",
+        deep: "深度分析"
+      },
+      dropdown: {
+        recognition: "视频识别",
+        idSingle: "每个ID点的X和Y分析结果",
+        idAll: "所有ID点的X和Y分析结果(总图)",
+        heatmap: "热力图",
+        sampen: "样本熵",
+        Image_analysis: "图像分析",
+        rqa: "RQA"
+      },
+    }
+  };
+
+  function applyI18n(lang) {
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const keys = el.dataset.i18n.split(".");
+      let value = i18n[lang];
+      keys.forEach(k => value = value?.[k]);
+      if (value) el.textContent = value;
+    });
+    langSwitch.textContent = lang === "zh" ? "EN" : "中";
+  }
+
+  let currentLang = localStorage.getItem("lang") || "en";
+  applyI18n(currentLang);
+
+  langSwitch.addEventListener("click", () => {
+    currentLang = currentLang === "zh" ? "en" : "zh";
+    localStorage.setItem("lang", currentLang);
+    applyI18n(currentLang);
+  });
+
+  const navMap = {
+    "nav-analysis": "analysis-dropdown",
+    "nav-deep": "deep-dropdown"
+  };
+
+  function hideAllDropdowns() {
+    Object.values(navMap).forEach(id => {
+      document.getElementById(id).style.display = "none";
+    });
+  }
+
+  Object.entries(navMap).forEach(([navId, dropId]) => {
+    document.getElementById(navId).addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      hideAllDropdowns();
+      document.getElementById(dropId).style.display = "block";
+    });
+  });
+
+  document.querySelectorAll(".dropdown-menu").forEach(menu => {
+    menu.addEventListener("click", e => e.stopPropagation());
+  });
+
+  document.addEventListener("click", hideAllDropdowns);
+
+  const routes = {
+    videoRecognition: "../index/VideoRecognition.html",
+    idSingle: "../index/IDPointAnalysis.html",
+    idAll: "../index/AllIDPointAnalysis.html",
+    heatmap: "../index/HeatMap.html",
+    sampen: "../DeepAnalysis/SampleEntropy.html",
+    Image_analysis: "{{ url_for('index') }}",
+    rqa: "../DeepAnalysis/RQA.html",
+    unprocessedFrames: "../VideoRecognition/UnprocessedFrames.html",
+    processedFrames: "../VideoRecognition/ProcessedFrames.html",
+    excelTable: "../VideoRecognition/ExcelTable.html",
+  };
+
+  document.querySelectorAll(".option-card[data-action]").forEach(card => {
+    card.addEventListener("click", () => {
+      const action = card.dataset.action;
+      if (routes[action]) {
+        location.href = routes[action];
+      }
+    });
+  });
+  document.querySelectorAll(".dropdown-item").forEach(item => {
+    item.onclick = () => {
+      const action = item.dataset.action;
+
+      if (action === "Image_analysis") {
+        location.href = "/index?open=Image_analysis";
+      } else if (routes[action]) {
+        location.href = routes[action];
+      }
+      };
+  });
+
+let workbook, sheetData, results = [];
+
+document.getElementById("fileInput").addEventListener("change", e => {
+  const reader = new FileReader();
+  reader.onload = evt => {
+    workbook = XLSX.read(evt.target.result, {type: 'binary'});
+    const sel = document.getElementById("sheetSelect");
+    sel.innerHTML = "";
+    workbook.SheetNames.forEach(s => {
+      const o = document.createElement("option");
+      o.value = s; o.textContent = s;
+      sel.appendChild(o);
+    });
+  };
+  reader.readAsBinaryString(e.target.files[0]);
+});
+
+function runRQA() {
+  const sheetName = document.getElementById("sheetSelect").value;
+  const sheet = workbook.Sheets[sheetName];
+  const json = XLSX.utils.sheet_to_json(sheet);
+
+  // 删除包含 NaN 或空值的行
+  const cleanedJson = json.filter(row => {
+    return Object.values(row).every(value => value !== null && value !== undefined && value !== "");
+  });
+
+  // 选择所有以 "joint_" 开头的列
+  const jointCols = Object.keys(cleanedJson[0]).filter(k => k.startsWith("joint"));
+  const jointData = jointCols.map(c => cleanedJson.map(r => r[c]));
+
+  results = [];  // 清空结果数组
+
+  jointData.forEach((sigRaw, idx) => {
+    let sig = sigRaw.map(v => v ?? NaN);
+
+    // 如果启用了滤波
+    if (document.getElementById("useFilter").checked) {
+      sig = butterworthLowpass(sig,
+        Number(document.getElementById("fs").value),
+        Number(document.getElementById("fc").value)
+      );
+    }
+
+    const mean = nanMean(sig);
+    const std = nanStd(sig);
+    sig = sig.map(v => isNaN(v) ? NaN : (v - mean) / std);
+    sig = sig.filter(v => !isNaN(v));  // 清除 NaN
+
+    // 如果数据长度小于 min_points，则跳过
+    if (sig.length < Number(minpts.value)) return;
+
+    const rqa = computeRQA(sig);
+    results.push({ID: idx + 1, Npts: sig.length, ...rqa});  // 将计算结果加入 results
+  });
+
+  console.log("RQA Results:", results);  // 打印结果查看
+
+  renderTable();
+}
+
+
+
+
+
+/* ================= RQA ================= */
+
+function computeRQA(sig) {
+  const m = +document.getElementById("m").value;
+  const tau = +document.getElementById("tau").value;
+  const lmin = +document.getElementById("lmin").value;
+  const vmin = +document.getElementById("vmin").value;
+  const k = +document.getElementById("k").value;
+
+  const M = sig.length - (m-1)*tau;
+  let X = [];
+  for (let i = 0; i < M; i++) {
+    let row = [];
+    for (let j = 0; j < m; j++) row.push(sig[i + j * tau]);
+    X.push(row);
+  }
+
+  let D = Array(M).fill(0).map(() => Array(M).fill(0));
+  let allD = [];
+  for (let i = 0; i < M; i++) {
+    for (let j = 0; j < M; j++) {
+      let d = 0;
+      for (let k2 = 0; k2 < m; k2++) d += (X[i][k2] - X[j][k2]) ** 2;
+      d = Math.sqrt(d);
+      D[i][j] = d;
+      allD.push(d);
+    }
+  }
+
+  const eps = k * nanStd(allD);
+  let R = D.map(r => r.map(v => v <= eps ? 1 : 0));
+
+  for (let i = 0; i < M; i++)
+    for (let j = Math.max(0, i - tau); j <= Math.min(M - 1, i + tau); j++)
+      R[i][j] = 0;
+
+  let REC = 0, cnt = 0;
+  for (let i = 0; i < M; i++)
+    for (let j = 0; j < M; j++)
+      if (Math.abs(i - j) > tau) {
+        REC += R[i][j];
+        cnt++;
+      }
+
+  REC /= cnt;
+
+  // 计算 DET, LAM, Lmax, Lmean, Vmax, TT, ShanEn
+  const diagLens = get_diag_line_lengths(R);
+  const diagLens_valid = diagLens.filter(d => d >= lmin);
+  const DET = diagLens_valid.length > 0 ? diagLens_valid.length / (M * M) : 0;
+  const Lmax = Math.max(...diagLens_valid, 0);
+  const Lmean = diagLens_valid.length > 0 ? diagLens_valid.reduce((a, b) => a + b, 0) / diagLens_valid.length : 0;
+
+  const vertLens = get_vert_line_lengths(R);
+  const vertLens_valid = vertLens.filter(v => v >= vmin);
+  const LAM = vertLens_valid.length > 0 ? vertLens_valid.length / (M * M) : 0;
+  const Vmax = Math.max(...vertLens_valid, 0);
+  const TT = vertLens_valid.length > 0 ? vertLens_valid.reduce((a, b) => a + b, 0) / vertLens_valid.length : 0;
+
+  const p = diagLens_valid.map(d => Math.exp(-d / Lmax));
+  const ShanEn = -p.reduce((a, b) => a + b * Math.log2(b), 0);
+
+  return { REC, DET, LAM, Lmax, Lmean, Vmax, TT, ShanEn, eps, m, tau };
+}
+
+function get_diag_line_lengths(R) {
+  const N = R.length;
+  const diagLens = [];
+  for (let k = -(N - 1); k <= (N - 1); k++) {  // 遍历所有对角线
+    const v = get_diag(R, k);  // 获取第 k 条对角线
+    const runs = run_length_counts(v);  // 计算每条对角线上的连续 1 的长度
+    if (runs.length > 0) {
+      diagLens.push(...runs);  // 添加有效的对角线长度
+    }
+  }
+  return diagLens;
+}
+function get_vert_line_lengths(R) {
+  const N = R.length;  // 矩阵的大小
+  const vertLens = [];
+  for (let c = 0; c < N; c++) {  // 遍历每一列
+    const v = get_col(R, c);  // 获取第 c 列
+    const runs = run_length_counts(v);  // 计算连续 1 的长度
+    if (runs.length > 0) {
+      vertLens.push(...runs);  // 将有效的垂直线长度添加到结果中
+    }
+  }
+  return vertLens;
+}
+
+// 获取符号矩阵 R 中第 c 列的数据
+function get_col(R, c) {
+  const N = R.length;
+  const col = [];
+  for (let i = 0; i < N; i++) {
+    col.push(R[i][c]);  // 提取第 c 列的每个元素
+  }
+  return col;
+}
+
+
+// 获取符号矩阵 R 中第 k 条对角线
+function get_diag(R, k) {
+  const N = R.length;
+  const diag = [];
+  for (let i = 0; i < N; i++) {
+    const j = i + k;
+    if (j >= 0 && j < N) {
+      diag.push(R[i][j]);  // 如果 j 在有效范围内，添加到对角线
+    }
+  }
+  return diag;
+}
+
+// 计算一维数组中连续 1 的长度（用于统计对角线上的长度）
+function run_length_counts(v) {
+  const runs = [];
+  let currentLength = 0;
+
+  for (let i = 0; i < v.length; i++) {
+    if (v[i] === 1) {
+      currentLength++;
+    } else {
+      if (currentLength > 0) {
+        runs.push(currentLength);
+      }
+      currentLength = 0;
+    }
+  }
+
+  if (currentLength > 0) {
+    runs.push(currentLength);  // 处理最后一段连续的 1
+  }
+
+  return runs;
+}
+
+
+/* =============== 工具函数 =============== */
+
+function nanMean(a){return a.reduce((s,v)=>!isNaN(v)?s+v:s,0)/a.filter(v=>!isNaN(v)).length;}
+function nanStd(a){const m=nanMean(a);return Math.sqrt(a.reduce((s,v)=>!isNaN(v)?s+(v-m)**2:s,0)/(a.length-1));}
+
+function butterworthLowpass(sig, fs, fc){
+  // 简化版：前后双向一阶 IIR（等价 filtfilt 思想）
+  const RC = 1/(2*Math.PI*fc);
+  const dt = 1/fs;
+  const alpha = dt/(RC+dt);
+  let y = [...sig];
+  for(let i=1;i<y.length;i++)
+    y[i]=isNaN(y[i])?y[i]:y[i-1]+alpha*(y[i]-y[i-1]);
+  for(let i=y.length-2;i>=0;i--)
+    y[i]=isNaN(y[i])?y[i]:y[i+1]+alpha*(y[i]-y[i+1]);
+  return y;
+}
+
+function renderTable() {
+  if (results.length === 0 || !results[0]) {
+    document.getElementById("output").innerHTML = "没有计算结果！";
+    return;
+  }
+
+  let html = "<table><tr>";
+  Object.keys(results[0]).forEach(k => html += `<th>${k}</th>`);
+  html += "</tr>";
+
+  results.forEach(r => {
+    html += "<tr>";
+    Object.values(r).forEach(v => html += `<td>${Number(v).toFixed(4)}</td>`);
+    html += "</tr>";
+  });
+
+  html += "</table>";
+  document.getElementById("output").innerHTML = html;
+}
+
+
+
+function exportExcel(){
+  const ws = XLSX.utils.json_to_sheet(results);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "RQA");
+  XLSX.writeFile(wb, "RQA_results.xlsx");
+}
+</script>
+
+</body>
+</html>
