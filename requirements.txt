@@ -1,2 +1,7 @@
 Flask
 gunicorn
+uuid
+shutil
+pandas
+numpy
+openpyxl
