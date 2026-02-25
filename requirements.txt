@@ -1,6 +1,5 @@
 Flask
 gunicorn
-uuid
 pandas
 numpy
 openpyxl
