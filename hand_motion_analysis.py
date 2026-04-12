@@ -400,12 +400,20 @@ def run_analysis(
         pd.DataFrame(se_matrix).to_excel(writer, "sample_entropy", index=False)
         pd.DataFrame(mse_matrix).to_excel(writer, "mse", index=False)
 
-        pd.DataFrame(features["disp_origin"]).to_excel(writer, "disp_origin", index=False)
-        pd.DataFrame(features["msd"]).to_excel(writer, "msd", index=False)
-        pd.DataFrame(features["speeds"]).to_excel(writer, "speeds", index=False)
-        pd.DataFrame(features["motion_angles"]).to_excel(writer, "motion_angles", index=False)
-        pd.DataFrame(features["angular_vel"]).to_excel(writer, "angular_velocity", index=False)
-        pd.DataFrame(features["jerk"]).to_excel(writer, "jerk", index=False)
+        def write_feature_sheet(writer, data, sheet_name, times, n_joints):
+            df = pd.DataFrame(
+            data,
+            columns=[f'joint_{i+1}' for i in range(n_joints)]
+            )
+            df.insert(0, "Time", times)  # 插入第一列
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        write_feature_sheet(writer, features["disp_origin"], "disp_origin", times, n_joints)
+        write_feature_sheet(writer, features["msd"], "msd", times, n_joints)
+        write_feature_sheet(writer, features["speeds"], "speeds", times, n_joints)
+        write_feature_sheet(writer, features["motion_angles"], "motion_angles", times, n_joints)
+        write_feature_sheet(writer, features["angular_vel"], "angular_velocity", times, n_joints)
+        write_feature_sheet(writer, features["jerk"], "jerk", times, n_joints)
 
     return {
         "excel_path": str(out_path),
